@@ -1,0 +1,57 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in the sections below.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Clear and concise description of the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this?
+      placeholder: |
+        1. Open the app…
+        2. Open settings…
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device / OS
+      description: e.g. Amazon Fire 7 (12th Gen) / Fire OS 8, or Pixel 7 / Android 14
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Version name from the APK or git commit if known
+      placeholder: "1.0.0"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Optional logcat output or screenshots
