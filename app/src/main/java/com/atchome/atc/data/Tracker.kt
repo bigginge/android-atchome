@@ -1,0 +1,183 @@
+package com.atchome.atc.data
+
+import com.atchome.atc.model.Aircraft
+import com.atchome.atc.model.MAX_AIRCRAFT
+import com.atchome.atc.model.TRAIL_LENGTH
+import com.atchome.atc.model.TrailPoint
+import kotlin.math.cos
+import kotlin.math.sin
+
+class Tracker {
+    private val aircraftList = mutableListOf<Aircraft>()
+    private var selectedHex: String = ""
+    private var autoSelected: Boolean = true
+
+    fun getAircraft(): List<Aircraft> = aircraftList.toList()
+
+    fun selected(): Aircraft? = findByHex(selectedHex)
+
+    fun hasSelection(): Boolean = selectedHex.isNotEmpty()
+
+    fun isAutoSelected(): Boolean = autoSelected
+
+    fun clear() {
+        aircraftList.clear()
+        selectedHex = ""
+        autoSelected = true
+    }
+
+    fun mergeSnapshot(incoming: List<Aircraft>) {
+        val previous = aircraftList.associateBy { it.hex.uppercase() }
+        aircraftList.clear()
+
+        val count = incoming.size
+        for (i in 0 until count) {
+            val dst = incoming[i].copy(trail = mutableListOf())
+            val prev = previous[dst.hex.uppercase()]
+
+            if (prev != null) {
+                retainEnrichment(dst, prev)
+                pushTrail(dst, dst.eastNm, dst.northNm)
+            } else {
+                pushTrail(dst, dst.eastNm, dst.northNm)
+            }
+
+            dst.seen = true
+            aircraftList.add(dst)
+        }
+
+        if (selectedHex.isNotEmpty() && findByHex(selectedHex) == null) {
+            selectedHex = ""
+            autoSelected = true
+        }
+
+        if (autoSelected) {
+            selectNearest()
+        }
+    }
+
+    fun selectNearest() {
+        if (aircraftList.isEmpty()) {
+            selectedHex = ""
+            return
+        }
+        val nearest = aircraftList.minByOrNull { it.distanceNm }
+        if (nearest != null) {
+            selectedHex = nearest.hex
+        }
+    }
+
+    fun selectByHex(hex: String): Boolean {
+        val ac = findByHex(hex) ?: return false
+        selectedHex = ac.hex
+        autoSelected = false
+        return true
+    }
+
+    /**
+     * Hit-test nearest aircraft within hitRadiusNm.
+     * If no aircraft within radius, reverts to auto-selecting the nearest aircraft.
+     */
+    fun selectNearestTo(eastNm: Float, northNm: Float, hitRadiusNm: Float): Aircraft? {
+        var best: Aircraft? = null
+        var bestDist2 = hitRadiusNm * hitRadiusNm
+
+        for (ac in aircraftList) {
+            val de = ac.eastNm - eastNm
+            val dn = ac.northNm - northNm
+            val d2 = de * de + dn * dn
+            if (d2 <= bestDist2) {
+                bestDist2 = d2
+                best = ac
+            }
+        }
+
+        if (best != null) {
+            selectedHex = best.hex
+            autoSelected = false
+        } else {
+            selectedHex = ""
+            autoSelected = true
+            selectNearest()
+        }
+        return best
+    }
+
+    /**
+     * Dead-reckoning extrapolation for smooth aircraft animation between polling snapshots.
+     */
+    fun updatePositions(dtSeconds: Float) {
+        for (ac in aircraftList) {
+            if (ac.groundSpeedKts > 0f) {
+                val speedNmps = ac.groundSpeedKts / 3600f
+                val distNm = speedNmps * dtSeconds
+                val rad = Math.toRadians(ac.trackDeg.toDouble())
+                ac.eastNm += (sin(rad) * distNm).toFloat()
+                ac.northNm += (cos(rad) * distNm).toFloat()
+            }
+        }
+    }
+
+    private fun findByHex(hex: String): Aircraft? {
+        if (hex.isEmpty()) return null
+        return aircraftList.firstOrNull { it.hex.equals(hex, ignoreCase = true) }
+    }
+
+    private fun pushTrail(ac: Aircraft, eastNm: Float, northNm: Float) {
+        if (ac.trail.isNotEmpty()) {
+            val last = ac.trail.last()
+            val de = eastNm - last.eastNm
+            val dn = northNm - last.northNm
+            if ((de * de + dn * dn) < (0.05f * 0.05f)) {
+                return
+            }
+        }
+
+        if (ac.trail.size >= TRAIL_LENGTH) {
+            ac.trail.removeAt(0)
+        }
+        ac.trail.add(TrailPoint(eastNm, northNm))
+    }
+
+    private fun retainEnrichment(dst: Aircraft, prev: Aircraft) {
+        if (dst.yearBuilt == null && prev.yearBuilt != null) {
+            dst.yearBuilt = prev.yearBuilt
+        }
+
+        if (prev.imageLoaded) {
+            dst.imageUrl = prev.imageUrl
+            dst.imagePhotographer = prev.imagePhotographer
+            dst.imageLoaded = true
+        }
+
+        if (prev.detailsLoaded) {
+            dst.manufacturer = prev.manufacturer
+            if (prev.typeDescription.isNotEmpty()) {
+                dst.typeDescription = prev.typeDescription
+            }
+            dst.registeredOwner = prev.registeredOwner
+            if (dst.registration.isEmpty()) {
+                dst.registration = prev.registration
+            }
+            dst.detailsLoaded = true
+        } else if (dst.typeDescription.isEmpty() && prev.typeDescription.isNotEmpty()) {
+            dst.typeDescription = prev.typeDescription
+        }
+
+        if (prev.routeLookupStep != 0 || prev.routeLoaded) {
+            dst.origin = prev.origin
+            dst.destination = prev.destination
+            dst.originIcao = prev.originIcao
+            dst.destinationIcao = prev.destinationIcao
+            dst.originLat = prev.originLat
+            dst.originLon = prev.originLon
+            dst.destinationLat = prev.destinationLat
+            dst.destinationLon = prev.destinationLon
+            dst.routeLoaded = prev.routeLoaded
+            dst.routeLookupStep = prev.routeLookupStep
+        }
+
+        dst.trail.clear()
+        dst.trail.addAll(prev.trail)
+    }
+}

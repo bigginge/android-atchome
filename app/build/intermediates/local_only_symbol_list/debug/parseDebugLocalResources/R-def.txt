@@ -1,0 +1,19 @@
+R_DEF: Internal format may change without notice
+local
+color black
+color info_bg
+color radar_bg
+color radar_cross
+color radar_ring
+color white
+drawable ic_launcher_background
+drawable ic_launcher_foreground
+mipmap ic_launcher
+string app_name
+string connecting
+string fetch_failed
+string no_aircraft_nearby
+string scanning
+string title_aircraft
+string title_radar
+style Theme.AtcHome

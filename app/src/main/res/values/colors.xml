@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="radar_bg">#FF0B1218</color>
+    <color name="info_bg">#FF121A22</color>
+    <color name="radar_ring">#FF2A3A4A</color>
+    <color name="radar_cross">#FF3A4A5A</color>
+</resources>

@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">ATC Home</string>
+    <string name="title_radar">Air Traffic Radar</string>
+    <string name="title_aircraft">Aircraft</string>
+    <string name="no_aircraft_nearby">No aircraft nearby</string>
+    <string name="scanning">Scanning…</string>
+    <string name="connecting">Connecting…</string>
+    <string name="fetch_failed">Fetch failed</string>
+</resources>
