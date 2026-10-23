@@ -67,7 +67,6 @@ fun SettingsDialog(
     var showMediumAirports by remember { mutableStateOf(initialSettings.showMediumAirports) }
     var showLargeAirports by remember { mutableStateOf(initialSettings.showLargeAirports) }
     var showSweep by remember { mutableStateOf(initialSettings.showSweep) }
-    var showVelocityVectors by remember { mutableStateOf(initialSettings.showVelocityVectors) }
     var dataTagMode by remember { mutableStateOf(initialSettings.dataTagMode) }
     var themeMode by remember { mutableStateOf(initialSettings.themeMode) }
     var reduceMotion by remember { mutableStateOf(initialSettings.reduceMotion) }
@@ -304,13 +303,6 @@ fun SettingsDialog(
                 )
 
                 SettingSwitchRow(
-                    title = "Velocity Predictors",
-                    subtitle = "1-minute heading & speed projection lines",
-                    checked = showVelocityVectors,
-                    onCheckedChange = { showVelocityVectors = it }
-                )
-
-                SettingSwitchRow(
                     title = "Keep Screen On",
                     subtitle = "Recommended for Fire tablet stand/kiosk",
                     checked = keepScreenOn,
@@ -379,7 +371,6 @@ fun SettingsDialog(
                             showMediumAirports = showMediumAirports,
                             showLargeAirports = showLargeAirports,
                             showSweep = showSweep,
-                            showVelocityVectors = showVelocityVectors,
                             dataTagMode = dataTagMode,
                             themeMode = themeMode,
                             reduceMotion = reduceMotion

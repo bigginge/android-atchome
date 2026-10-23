@@ -75,7 +75,6 @@ fun RadarView(
     showRangeRings: Boolean,
     showAirports: Boolean = true,
     showSweep: Boolean = true,
-    showVelocityVectors: Boolean = true,
     reduceMotion: Boolean = false,
     dataTagMode: String = "COMPACT",
     highlightFilters: AircraftHighlightFilters = AircraftHighlightFilters(),
@@ -234,14 +233,7 @@ fun RadarView(
                 }
             }
 
-            // 5. Velocity Predictor Vectors (1-minute projected ground path)
-            if (showVelocityVectors) {
-                aircraftList.forEach { ac ->
-                    drawVelocityVector(ac, cx, cy, pxPerNm, isSelected = ac.hex == selectedAircraft?.hex, palette = palette)
-                }
-            }
-
-            // 6. Airport ATC tower markers (under aircraft so traffic stays on top)
+            // 5. Airport ATC tower markers (under aircraft so traffic stays on top)
             val occupiedLabels = mutableListOf<Rect>()
             if (showAirports) {
                 orderedAirports.forEach { airport ->
@@ -559,48 +551,6 @@ private fun DrawScope.drawAircraftBreadcrumbs(
             center = Offset(px, py)
         )
     }
-}
-
-/**
- * 1-minute velocity predictor line extending ahead of aircraft along its track.
- */
-private fun DrawScope.drawVelocityVector(
-    ac: RadarAircraft,
-    cx: Float,
-    cy: Float,
-    pxPerNm: Float,
-    isSelected: Boolean,
-    palette: AtcPalette
-) {
-    if (ac.groundSpeedKts < 20f) return
-
-    val x0 = cx + ac.eastNm * pxPerNm
-    val y0 = cy - ac.northNm * pxPerNm
-
-    // 1 minute ahead in NM
-    val predNm = (ac.groundSpeedKts / 60f).coerceIn(0.5f, 15f)
-    val rad = Math.toRadians((ac.trackDeg - 90).toDouble())
-
-    val x1 = (x0 + cos(rad) * predNm * pxPerNm).toFloat()
-    val y1 = (y0 + sin(rad) * predNm * pxPerNm).toFloat()
-
-    val vectorColor = if (isSelected) palette.highlight else palette.aircraftAltitudeColor(ac.altitudeFt, ac.altitudeKnown).copy(alpha = 0.75f)
-    val strokeWidth = if (isSelected) 1.8.dp.toPx() else 1.1.dp.toPx()
-
-    drawLine(
-        color = vectorColor,
-        start = Offset(x0, y0),
-        end = Offset(x1, y1),
-        strokeWidth = strokeWidth,
-        cap = StrokeCap.Round
-    )
-
-    // Vector tip marker
-    drawCircle(
-        color = vectorColor,
-        radius = if (isSelected) 2.dp.toPx() else 1.4.dp.toPx(),
-        center = Offset(x1, y1)
-    )
 }
 
 /** Draw a compact tower beacon and airport identifier at its radar position. */
