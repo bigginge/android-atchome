@@ -67,6 +67,9 @@ fun SettingsDialog(
     var showTrails by remember { mutableStateOf(initialSettings.showTrails) }
     var showRangeRings by remember { mutableStateOf(initialSettings.showRangeRings) }
     var showAirports by remember { mutableStateOf(initialSettings.showAirports) }
+    var showSmallAirports by remember { mutableStateOf(initialSettings.showSmallAirports) }
+    var showMediumAirports by remember { mutableStateOf(initialSettings.showMediumAirports) }
+    var showLargeAirports by remember { mutableStateOf(initialSettings.showLargeAirports) }
     var showSweep by remember { mutableStateOf(initialSettings.showSweep) }
     var showVelocityVectors by remember { mutableStateOf(initialSettings.showVelocityVectors) }
     var dataTagMode by remember { mutableStateOf(initialSettings.dataTagMode) }
@@ -306,9 +309,30 @@ fun SettingsDialog(
 
                 SettingSwitchRow(
                     title = "Airports",
-                    subtitle = "Show ATC tower markers in range",
+                    subtitle = "Show commercial airports in range",
                     checked = showAirports,
                     onCheckedChange = { showAirports = it }
+                )
+
+                SettingSwitchRow(
+                    title = "Large Airports",
+                    subtitle = "International hubs and major airports",
+                    checked = showLargeAirports,
+                    onCheckedChange = { showLargeAirports = it }
+                )
+
+                SettingSwitchRow(
+                    title = "Medium Airports",
+                    subtitle = "Regional and city airports",
+                    checked = showMediumAirports,
+                    onCheckedChange = { showMediumAirports = it }
+                )
+
+                SettingSwitchRow(
+                    title = "Small Airports",
+                    subtitle = "Smaller airports with scheduled airline service",
+                    checked = showSmallAirports,
+                    onCheckedChange = { showSmallAirports = it }
                 )
             }
         },
@@ -327,6 +351,9 @@ fun SettingsDialog(
                             showTrails = showTrails,
                             showRangeRings = showRangeRings,
                             showAirports = showAirports,
+                            showSmallAirports = showSmallAirports,
+                            showMediumAirports = showMediumAirports,
+                            showLargeAirports = showLargeAirports,
                             showSweep = showSweep,
                             showVelocityVectors = showVelocityVectors,
                             dataTagMode = dataTagMode

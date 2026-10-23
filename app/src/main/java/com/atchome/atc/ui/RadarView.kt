@@ -41,6 +41,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.atchome.atc.model.Aircraft
+import com.atchome.atc.model.AircraftHighlightFilters
 import com.atchome.atc.model.Airport
 import com.atchome.atc.ui.theme.AccentAmber
 import com.atchome.atc.ui.theme.CardBackground
@@ -83,11 +84,13 @@ fun RadarView(
     showSweep: Boolean = true,
     showVelocityVectors: Boolean = true,
     dataTagMode: String = "COMPACT",
+    highlightFilters: AircraftHighlightFilters = AircraftHighlightFilters(),
     modifier: Modifier = Modifier,
     onSelectAt: (eastNm: Float, northNm: Float, hitRadiusNm: Float) -> Unit,
     onZoomIn: () -> Unit = {},
     onZoomOut: () -> Unit = {},
-    onCycleDataTagMode: () -> Unit = {}
+    onCycleDataTagMode: () -> Unit = {},
+    onOpenHighlightFilters: () -> Unit = {}
 ) {
     val textMeasurer = rememberTextMeasurer()
 
@@ -130,7 +133,7 @@ fun RadarView(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(rangeNm, aircraftList, dataTagMode) {
+                .pointerInput(rangeNm, aircraftList, dataTagMode, highlightFilters) {
                     detectTapGestures { tapOffset ->
                         val sizePx = min(size.width, size.height).toFloat()
                         val cx = sizePx / 2f
@@ -162,6 +165,13 @@ fun RadarView(
                                 (tapOffset.y in (padding + 42.dp.toPx())..(padding + 72.dp.toPx()))
                         if (tagPillArea) {
                             onCycleDataTagMode()
+                            return@detectTapGestures
+                        }
+
+                        val filterArea = (tapOffset.x in (padding + 108.dp.toPx())..(padding + 148.dp.toPx())) &&
+                                (tapOffset.y in (padding + 25.dp.toPx())..(padding + 66.dp.toPx()))
+                        if (filterArea) {
+                            onOpenHighlightFilters()
                             return@detectTapGestures
                         }
 
@@ -246,12 +256,15 @@ fun RadarView(
             // 7. Aircraft Blips (Unselected first, then selected)
             aircraftList.forEach { ac ->
                 if (ac.hex != selectedAircraft?.hex) {
+                    val isMatch = !highlightFilters.isActive || highlightFilters.matches(ac)
                     drawAircraftBlip(
                         ac = ac,
                         cx = cx,
                         cy = cy,
                         pxPerNm = pxPerNm,
                         isSelected = false,
+                        isHighlighted = isMatch && highlightFilters.isActive,
+                        isDimmed = highlightFilters.isActive && !isMatch,
                         showSweep = showSweep,
                         sweepAngle = sweepAngle,
                         dataTagMode = dataTagMode,
@@ -268,6 +281,8 @@ fun RadarView(
                     cy = cy,
                     pxPerNm = pxPerNm,
                     isSelected = true,
+                    isHighlighted = highlightFilters.isActive && highlightFilters.matches(ac),
+                    isDimmed = false,
                     showSweep = showSweep,
                     sweepAngle = sweepAngle,
                     dataTagMode = dataTagMode,
@@ -281,6 +296,8 @@ fun RadarView(
                 sizePx = sizePx,
                 rangeNm = rangeNm,
                 targetCount = aircraftList.size,
+                matchedCount = if (highlightFilters.isActive) aircraftList.count(highlightFilters::matches) else aircraftList.size,
+                highlightFilters = highlightFilters,
                 dataTagMode = dataTagMode,
                 utcClock = utcClockText,
                 textMeasurer = textMeasurer
@@ -590,7 +607,7 @@ private fun DrawScope.drawAirportTower(
     drawLine(color, Offset(x - halfWidth * 0.7f, y + 2.dp.toPx()), Offset(x + halfWidth * 0.7f, y + 2.dp.toPx()), 1.5.dp.toPx())
     drawCircle(color = color, radius = 1.8.dp.toPx(), center = Offset(x, y - height - 1.dp.toPx()))
 
-    val label = airport.ident
+    val label = airport.name.ifBlank { airport.ident }
     val layout = textMeasurer.measure(
         text = label,
         style = TextStyle(
@@ -612,6 +629,8 @@ private fun DrawScope.drawAircraftBlip(
     cy: Float,
     pxPerNm: Float,
     isSelected: Boolean,
+    isHighlighted: Boolean = false,
+    isDimmed: Boolean = false,
     showSweep: Boolean,
     sweepAngle: Float,
     dataTagMode: String,
@@ -621,9 +640,19 @@ private fun DrawScope.drawAircraftBlip(
     val x = cx + ac.eastNm * pxPerNm
     val y = cy - ac.northNm * pxPerNm
     val center = Offset(x, y)
+    val dimAlpha = if (isDimmed) 0.3f else 1f
+
+    if (isHighlighted) {
+        drawCircle(
+            color = TextHighlight.copy(alpha = 0.95f),
+            radius = 13.dp.toPx(),
+            center = center,
+            style = Stroke(width = 1.8.dp.toPx())
+        )
+    }
 
     // Phosphor Excitation Calculation: brighten when swept
-    var blipColor = ac.displayColor
+    var blipColor = ac.displayColor.copy(alpha = if (isDimmed) 0.24f else 1f)
     if (showSweep) {
         val dx = x - cx
         val dy = y - cy
@@ -697,7 +726,7 @@ private fun DrawScope.drawAircraftBlip(
                 fontFamily = FontFamily.Monospace,
                 fontSize = if (isSelected) 11.sp else 9.5.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isSelected) Color.White else TextPrimary
+                color = (if (isSelected) Color.White else TextPrimary).copy(alpha = dimAlpha)
             )
         )
         val textLayout2 = textMeasurer.measure(
@@ -706,7 +735,7 @@ private fun DrawScope.drawAircraftBlip(
                 fontFamily = FontFamily.Monospace,
                 fontSize = if (isSelected) 10.sp else 8.5.sp,
                 fontWeight = FontWeight.Normal,
-                color = if (isSelected) TextHighlight else TextSecondary
+                color = (if (isSelected) TextHighlight else TextSecondary).copy(alpha = dimAlpha)
             )
         )
 
@@ -719,7 +748,7 @@ private fun DrawScope.drawAircraftBlip(
         val tagRightX = elbowX + tagWidth + 4f
 
         drawLine(
-            color = if (isSelected) TextHighlight else RadarTagBorder,
+            color = (if (isSelected) TextHighlight else RadarTagBorder).copy(alpha = dimAlpha),
             start = Offset(x + 4f, y - 4f),
             end = Offset(elbowX, elbowY),
             strokeWidth = 1.2.dp.toPx()
@@ -733,13 +762,13 @@ private fun DrawScope.drawAircraftBlip(
 
         // Data Block Background Pill
         drawRoundRect(
-            color = RadarTagBg,
+            color = RadarTagBg.copy(alpha = RadarTagBg.alpha * dimAlpha),
             topLeft = Offset(elbowX + 4f, elbowY - tagHeight + 4f),
             size = Size(tagWidth, tagHeight),
             cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
         )
         drawRoundRect(
-            color = if (isSelected) TextHighlight.copy(alpha = 0.8f) else RadarTagBorder,
+            color = (if (isSelected) TextHighlight.copy(alpha = 0.8f) else RadarTagBorder).copy(alpha = dimAlpha),
             topLeft = Offset(elbowX + 4f, elbowY - tagHeight + 4f),
             size = Size(tagWidth, tagHeight),
             cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
@@ -759,7 +788,7 @@ private fun DrawScope.drawAircraftBlip(
                 fontFamily = FontFamily.Monospace,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Medium,
-                color = TextSecondary.copy(alpha = 0.9f)
+                color = TextSecondary.copy(alpha = 0.9f * dimAlpha)
             )
         )
         val tagW = textLayout.size.width + 8f
@@ -768,7 +797,7 @@ private fun DrawScope.drawAircraftBlip(
         val ly = y + 12.dp.toPx()
 
         drawRoundRect(
-            color = RadarTagBg,
+            color = RadarTagBg.copy(alpha = RadarTagBg.alpha * dimAlpha),
             topLeft = Offset(lx, ly),
             size = Size(tagW, tagH),
             cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
@@ -787,6 +816,8 @@ private fun DrawScope.drawRadarHud(
     sizePx: Float,
     rangeNm: Float,
     targetCount: Int,
+    matchedCount: Int,
+    highlightFilters: AircraftHighlightFilters,
     dataTagMode: String,
     utcClock: String,
     textMeasurer: TextMeasurer
@@ -852,6 +883,49 @@ private fun DrawScope.drawRadarHud(
         style = Stroke(width = 1.dp.toPx())
     )
     drawText(textLayoutResult = tagPillLayout, topLeft = Offset(padding + 7f, tagPillY + 3f))
+
+    // Filter control beside the tag mode pill.
+    val filterX = padding + 112.dp.toPx()
+    val filterSize = 34.dp.toPx()
+    drawRoundRect(
+        color = CardBackground,
+        topLeft = Offset(filterX, tagPillY - 2.dp.toPx()),
+        size = Size(filterSize, filterSize),
+        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+    )
+    drawRoundRect(
+        color = if (highlightFilters.isActive) TextHighlight else RadarTagBorder,
+        topLeft = Offset(filterX, tagPillY - 2.dp.toPx()),
+        size = Size(filterSize, filterSize),
+        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+        style = Stroke(width = 1.dp.toPx())
+    )
+    val funnel = Path().apply {
+        moveTo(filterX + 9.dp.toPx(), tagPillY + 7.dp.toPx())
+        lineTo(filterX + 25.dp.toPx(), tagPillY + 7.dp.toPx())
+        lineTo(filterX + 19.dp.toPx(), tagPillY + 14.dp.toPx())
+        lineTo(filterX + 19.dp.toPx(), tagPillY + 22.dp.toPx())
+        lineTo(filterX + 15.dp.toPx(), tagPillY + 20.dp.toPx())
+        lineTo(filterX + 15.dp.toPx(), tagPillY + 14.dp.toPx())
+        close()
+    }
+    drawPath(funnel, if (highlightFilters.isActive) TextHighlight else TextPrimary)
+
+    if (highlightFilters.isActive) {
+        val summary = "MATCH $matchedCount/$targetCount • ${highlightFilters.summary().take(28)}${if (highlightFilters.summary().length > 28) "…" else ""}"
+        val summaryLayout = textMeasurer.measure(
+            summary,
+            style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = TextHighlight)
+        )
+        val summaryY = tagPillY + filterSize + 3.dp.toPx()
+        drawRoundRect(
+            color = RadarTagBg,
+            topLeft = Offset(padding, summaryY),
+            size = Size(summaryLayout.size.width + 12f, summaryLayout.size.height + 6f),
+            cornerRadius = CornerRadius(3.dp.toPx(), 3.dp.toPx())
+        )
+        drawText(summaryLayout, topLeft = Offset(padding + 6f, summaryY + 3f))
+    }
 
     // 2. Top-Right Quick Zoom Buttons [+] and [-]
     val btnSize = 34.dp.toPx()

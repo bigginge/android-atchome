@@ -12,6 +12,9 @@ data class AppSettings(
     val showTrails: Boolean = true,
     val showRangeRings: Boolean = true,
     val showAirports: Boolean = true,
+    val showSmallAirports: Boolean = false,
+    val showMediumAirports: Boolean = true,
+    val showLargeAirports: Boolean = true,
     val showSweep: Boolean = true,
     val showVelocityVectors: Boolean = true,
     val dataTagMode: String = "COMPACT" // "SELECTED", "COMPACT", "FULL"
@@ -31,6 +34,9 @@ class SettingsManager(context: Context) {
             showTrails = prefs.getBoolean(KEY_SHOW_TRAILS, true),
             showRangeRings = prefs.getBoolean(KEY_SHOW_RINGS, true),
             showAirports = prefs.getBoolean(KEY_SHOW_AIRPORTS, true),
+            showSmallAirports = prefs.getBoolean(KEY_SHOW_SMALL_AIRPORTS, false),
+            showMediumAirports = prefs.getBoolean(KEY_SHOW_MEDIUM_AIRPORTS, true),
+            showLargeAirports = prefs.getBoolean(KEY_SHOW_LARGE_AIRPORTS, true),
             showSweep = prefs.getBoolean(KEY_SHOW_SWEEP, true),
             showVelocityVectors = prefs.getBoolean(KEY_SHOW_VELOCITY_VECTORS, true),
             dataTagMode = prefs.getString(KEY_DATA_TAG_MODE, "COMPACT") ?: "COMPACT"
@@ -47,6 +53,9 @@ class SettingsManager(context: Context) {
             .putBoolean(KEY_SHOW_TRAILS, settings.showTrails)
             .putBoolean(KEY_SHOW_RINGS, settings.showRangeRings)
             .putBoolean(KEY_SHOW_AIRPORTS, settings.showAirports)
+            .putBoolean(KEY_SHOW_SMALL_AIRPORTS, settings.showSmallAirports)
+            .putBoolean(KEY_SHOW_MEDIUM_AIRPORTS, settings.showMediumAirports)
+            .putBoolean(KEY_SHOW_LARGE_AIRPORTS, settings.showLargeAirports)
             .putBoolean(KEY_SHOW_SWEEP, settings.showSweep)
             .putBoolean(KEY_SHOW_VELOCITY_VECTORS, settings.showVelocityVectors)
             .putString(KEY_DATA_TAG_MODE, settings.dataTagMode)
@@ -62,6 +71,9 @@ class SettingsManager(context: Context) {
         private const val KEY_SHOW_TRAILS = "show_trails"
         private const val KEY_SHOW_RINGS = "show_rings"
         private const val KEY_SHOW_AIRPORTS = "show_airports"
+        private const val KEY_SHOW_SMALL_AIRPORTS = "show_small_airports"
+        private const val KEY_SHOW_MEDIUM_AIRPORTS = "show_medium_airports"
+        private const val KEY_SHOW_LARGE_AIRPORTS = "show_large_airports"
         private const val KEY_SHOW_SWEEP = "show_sweep"
         private const val KEY_SHOW_VELOCITY_VECTORS = "show_velocity_vectors"
         private const val KEY_DATA_TAG_MODE = "data_tag_mode"

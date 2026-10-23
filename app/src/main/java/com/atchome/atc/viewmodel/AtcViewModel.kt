@@ -11,6 +11,7 @@ import com.atchome.atc.data.AppSettings
 import com.atchome.atc.data.SettingsManager
 import com.atchome.atc.data.Tracker
 import com.atchome.atc.model.Aircraft
+import com.atchome.atc.model.AircraftHighlightFilters
 import com.atchome.atc.model.Airport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,7 +30,9 @@ data class AtcUiState(
     val statusMessage: String = "Connecting…",
     val isScanning: Boolean = false,
     val settings: AppSettings = AppSettings(),
-    val isSettingsDialogOpen: Boolean = false
+    val isSettingsDialogOpen: Boolean = false,
+    val highlightFilters: AircraftHighlightFilters = AircraftHighlightFilters(),
+    val isHighlightFilterSheetOpen: Boolean = false
 )
 
 class AtcViewModel(application: Application) : AndroidViewModel(application) {
@@ -63,6 +66,22 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(isSettingsDialogOpen = false)
     }
 
+    fun openHighlightFilters() {
+        _uiState.value = _uiState.value.copy(isHighlightFilterSheetOpen = true)
+    }
+
+    fun closeHighlightFilters() {
+        _uiState.value = _uiState.value.copy(isHighlightFilterSheetOpen = false)
+    }
+
+    fun updateHighlightFilters(filters: AircraftHighlightFilters) {
+        _uiState.value = _uiState.value.copy(highlightFilters = filters)
+    }
+
+    fun clearHighlightFilters() {
+        updateHighlightFilters(AircraftHighlightFilters())
+    }
+
     fun saveSettings(newSettings: AppSettings) {
         val previous = _uiState.value.settings
         settingsManager.saveSettings(newSettings)
@@ -72,7 +91,10 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
         )
         if (previous.homeLat != newSettings.homeLat ||
             previous.homeLon != newSettings.homeLon ||
-            previous.radiusNm != newSettings.radiusNm
+            previous.radiusNm != newSettings.radiusNm ||
+            previous.showSmallAirports != newSettings.showSmallAirports ||
+            previous.showMediumAirports != newSettings.showMediumAirports ||
+            previous.showLargeAirports != newSettings.showLargeAirports
         ) {
             refreshNearbyAirports()
         }
@@ -87,7 +109,12 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
             val nearby = airportRepository.nearby(
                 homeLat = settings.homeLat,
                 homeLon = settings.homeLon,
-                radiusNm = settings.radiusNm
+                radiusNm = settings.radiusNm,
+                airportTypes = buildSet {
+                    if (settings.showSmallAirports) add("small")
+                    if (settings.showMediumAirports) add("medium")
+                    if (settings.showLargeAirports) add("large")
+                }
             )
             _uiState.value = _uiState.value.copy(airports = nearby)
         }

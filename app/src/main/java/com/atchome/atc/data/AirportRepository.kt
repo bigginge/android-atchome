@@ -17,6 +17,7 @@ class AirportRepository(private val context: Context) {
     private data class AirportRecord(
         val ident: String,
         val name: String,
+        val type: String,
         val lat: Double,
         val lon: Double
     )
@@ -24,7 +25,12 @@ class AirportRepository(private val context: Context) {
     private val mutex = Mutex()
     private var catalog: List<AirportRecord>? = null
 
-    suspend fun nearby(homeLat: Double, homeLon: Double, radiusNm: Int): List<Airport> =
+    suspend fun nearby(
+        homeLat: Double,
+        homeLon: Double,
+        radiusNm: Int,
+        airportTypes: Set<String>
+    ): List<Airport> =
         withContext(Dispatchers.IO) {
             val all = ensureLoaded()
             val radius = radiusNm.toFloat()
@@ -35,6 +41,7 @@ class AirportRepository(private val context: Context) {
             val lonPad = radiusNm / (60.0 * cosLat) + 0.05
 
             all.mapNotNull { rec ->
+                if (rec.type !in airportTypes) return@mapNotNull null
                 if (rec.lat < homeLat - latPad || rec.lat > homeLat + latPad) return@mapNotNull null
                 if (rec.lon < homeLon - lonPad || rec.lon > homeLon + lonPad) return@mapNotNull null
                 val (eastNm, northNm) = GeoCalculations.latLonToNm(
@@ -67,6 +74,8 @@ class AirportRepository(private val context: Context) {
             val obj = array.optJSONObject(i) ?: continue
             val ident = obj.optString("ident").trim()
             if (ident.isEmpty()) continue
+            val type = obj.optString("type").trim()
+            if (type !in AIRPORT_TYPES) continue
             val lat = obj.optDouble("lat", Double.NaN)
             val lon = obj.optDouble("lon", Double.NaN)
             if (!lat.isFinite() || !lon.isFinite()) continue
@@ -74,6 +83,7 @@ class AirportRepository(private val context: Context) {
                 AirportRecord(
                     ident = ident,
                     name = obj.optString("name").trim(),
+                    type = type,
                     lat = lat,
                     lon = lon
                 )
@@ -84,5 +94,6 @@ class AirportRepository(private val context: Context) {
 
     companion object {
         private const val ASSET_NAME = "airports.json"
+        private val AIRPORT_TYPES = setOf("small", "medium", "large")
     }
 }

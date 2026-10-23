@@ -45,6 +45,7 @@ fun AtcScreen(
                     showSweep = uiState.settings.showSweep,
                     showVelocityVectors = uiState.settings.showVelocityVectors,
                     dataTagMode = uiState.settings.dataTagMode,
+                    highlightFilters = uiState.highlightFilters,
                     modifier = Modifier
                         .fillMaxHeight()
                         .aspectRatio(1f),
@@ -53,7 +54,8 @@ fun AtcScreen(
                     },
                     onZoomIn = { viewModel.zoomIn() },
                     onZoomOut = { viewModel.zoomOut() },
-                    onCycleDataTagMode = { viewModel.cycleDataTagMode() }
+                    onCycleDataTagMode = { viewModel.cycleDataTagMode() },
+                    onOpenHighlightFilters = { viewModel.openHighlightFilters() }
                 )
 
                 InfoPanel(
@@ -78,6 +80,7 @@ fun AtcScreen(
                     showSweep = uiState.settings.showSweep,
                     showVelocityVectors = uiState.settings.showVelocityVectors,
                     dataTagMode = uiState.settings.dataTagMode,
+                    highlightFilters = uiState.highlightFilters,
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f),
@@ -86,7 +89,8 @@ fun AtcScreen(
                     },
                     onZoomIn = { viewModel.zoomIn() },
                     onZoomOut = { viewModel.zoomOut() },
-                    onCycleDataTagMode = { viewModel.cycleDataTagMode() }
+                    onCycleDataTagMode = { viewModel.cycleDataTagMode() },
+                    onOpenHighlightFilters = { viewModel.openHighlightFilters() }
                 )
 
                 InfoPanel(
@@ -106,6 +110,15 @@ fun AtcScreen(
                 onSave = { newSettings ->
                     viewModel.saveSettings(newSettings)
                 }
+            )
+        }
+
+        if (uiState.isHighlightFilterSheetOpen) {
+            AircraftHighlightFilterSheet(
+                filters = uiState.highlightFilters,
+                onFiltersChange = { viewModel.updateHighlightFilters(it) },
+                onClear = { viewModel.clearHighlightFilters() },
+                onDismiss = { viewModel.closeHighlightFilters() }
             )
         }
     }

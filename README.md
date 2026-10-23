@@ -12,9 +12,9 @@ Turns an **Amazon Fire 7** (or any Android tablet / phone) into a dedicated, alw
 
 ## Features
 
-- **Tactical radar** — range rings (NM), home-centered crosshair, nearby airport tower markers, heading-aware chevrons, altitude-based coloring, fading trails, tap-to-select
+- **Tactical radar** — range rings (NM), home-centered crosshair, scheduled-service airport markers with readable names and selectable size classes, heading-aware chevrons, altitude-based coloring, fading trails, tap-to-select
 - **Detail panel** — aircraft type, registration, callsign, live distance / altitude / speed / heading, route enrichment, status badge
-- **Settings** — home lat/lon (with map picker), search radius, poll interval, keep-screen-on, trail / range-ring / airport toggles
+- **Settings** — home lat/lon (with map picker), search radius, poll interval, keep-screen-on, trail / range-ring toggles, airport class filters
 - **Kiosk-friendly** — immersive fullscreen landscape layout with smooth dead-reckoning between ADS-B snapshots
 
 ## Requirements
@@ -89,3 +89,5 @@ Released under the [MIT License](LICENSE).
 ## Security
 
 See [SECURITY.md](SECURITY.md) for how to report vulnerabilities privately.
+
+Airport locations and scheduled-service status are from [OurAirports](https://ourairports.com/data/), which publishes the data in the public domain.
