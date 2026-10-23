@@ -6,10 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.atchome.atc.api.AdsbApiClient
 import com.atchome.atc.api.AircraftImageApiClient
 import com.atchome.atc.api.HexdbApiClient
+import com.atchome.atc.data.AirportRepository
 import com.atchome.atc.data.AppSettings
 import com.atchome.atc.data.SettingsManager
 import com.atchome.atc.data.Tracker
 import com.atchome.atc.model.Aircraft
+import com.atchome.atc.model.Airport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -22,6 +24,7 @@ import kotlinx.coroutines.withContext
 
 data class AtcUiState(
     val aircraft: List<Aircraft> = emptyList(),
+    val airports: List<Airport> = emptyList(),
     val selectedAircraft: Aircraft? = null,
     val statusMessage: String = "Connecting…",
     val isScanning: Boolean = false,
@@ -31,6 +34,7 @@ data class AtcUiState(
 
 class AtcViewModel(application: Application) : AndroidViewModel(application) {
     private val settingsManager = SettingsManager(application)
+    private val airportRepository = AirportRepository(application)
     private val adsbClient = AdsbApiClient()
     private val hexdbClient = HexdbApiClient()
     private val imageClient = AircraftImageApiClient()
@@ -42,9 +46,11 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
     private var pollJob: Job? = null
     private var tickerJob: Job? = null
     private var enrichmentJob: Job? = null
+    private var airportJob: Job? = null
     private var lastEnrichedHex: String = ""
 
     init {
+        refreshNearbyAirports()
         startPolling()
         startDeadReckoningTicker()
     }
@@ -58,13 +64,33 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun saveSettings(newSettings: AppSettings) {
+        val previous = _uiState.value.settings
         settingsManager.saveSettings(newSettings)
         _uiState.value = _uiState.value.copy(
             settings = newSettings,
             isSettingsDialogOpen = false
         )
+        if (previous.homeLat != newSettings.homeLat ||
+            previous.homeLon != newSettings.homeLon ||
+            previous.radiusNm != newSettings.radiusNm
+        ) {
+            refreshNearbyAirports()
+        }
         // Restart polling with new coordinates/interval
         startPolling()
+    }
+
+    private fun refreshNearbyAirports() {
+        airportJob?.cancel()
+        airportJob = viewModelScope.launch {
+            val settings = _uiState.value.settings
+            val nearby = airportRepository.nearby(
+                homeLat = settings.homeLat,
+                homeLon = settings.homeLon,
+                radiusNm = settings.radiusNm
+            )
+            _uiState.value = _uiState.value.copy(airports = nearby)
+        }
     }
 
     fun zoomIn() {
@@ -324,5 +350,6 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
         pollJob?.cancel()
         tickerJob?.cancel()
         enrichmentJob?.cancel()
+        airportJob?.cancel()
     }
 }

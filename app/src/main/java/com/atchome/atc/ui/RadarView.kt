@@ -41,6 +41,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.atchome.atc.model.Aircraft
+import com.atchome.atc.model.Airport
+import com.atchome.atc.ui.theme.AccentAmber
 import com.atchome.atc.ui.theme.CardBackground
 import com.atchome.atc.ui.theme.HomeMarkerColor
 import com.atchome.atc.ui.theme.RadarBackground
@@ -73,9 +75,11 @@ import kotlin.math.sin
 fun RadarView(
     aircraftList: List<Aircraft>,
     selectedAircraft: Aircraft?,
+    airports: List<Airport> = emptyList(),
     rangeNm: Float,
     showTrails: Boolean,
     showRangeRings: Boolean,
+    showAirports: Boolean = true,
     showSweep: Boolean = true,
     showVelocityVectors: Boolean = true,
     dataTagMode: String = "COMPACT",
@@ -226,7 +230,20 @@ fun RadarView(
                 }
             }
 
-            // 6. Aircraft Blips (Unselected first, then selected)
+            // 6. Airport ATC tower markers (under aircraft so traffic stays on top)
+            if (showAirports) {
+                airports.forEach { airport ->
+                    drawAirportTower(
+                        airport = airport,
+                        cx = cx,
+                        cy = cy,
+                        pxPerNm = pxPerNm,
+                        textMeasurer = textMeasurer
+                    )
+                }
+            }
+
+            // 7. Aircraft Blips (Unselected first, then selected)
             aircraftList.forEach { ac ->
                 if (ac.hex != selectedAircraft?.hex) {
                     drawAircraftBlip(
@@ -259,7 +276,7 @@ fun RadarView(
                 )
             }
 
-            // 7. On-Canvas HUD Elements (Zoom Buttons, Counters, Zulu Clock)
+            // 8. On-Canvas HUD Elements (Zoom Buttons, Counters, Zulu Clock)
             drawRadarHud(
                 sizePx = sizePx,
                 rangeNm = rangeNm,
@@ -551,6 +568,39 @@ private fun DrawScope.drawVelocityVector(
         radius = if (isSelected) 2.dp.toPx() else 1.4.dp.toPx(),
         center = Offset(x1, y1)
     )
+}
+
+/** Draw a compact tower beacon and airport identifier at its radar position. */
+private fun DrawScope.drawAirportTower(
+    airport: Airport,
+    cx: Float,
+    cy: Float,
+    pxPerNm: Float,
+    textMeasurer: TextMeasurer
+) {
+    val x = cx + airport.eastNm * pxPerNm
+    val y = cy - airport.northNm * pxPerNm
+    val color = AccentAmber.copy(alpha = 0.9f)
+    val halfWidth = 4.dp.toPx()
+    val height = 9.dp.toPx()
+
+    // Tower mast and crossbar, with a small roof beacon.
+    drawLine(color, Offset(x, y - height), Offset(x, y + 2.dp.toPx()), 1.5.dp.toPx())
+    drawLine(color, Offset(x - halfWidth, y - 2.dp.toPx()), Offset(x + halfWidth, y - 2.dp.toPx()), 1.5.dp.toPx())
+    drawLine(color, Offset(x - halfWidth * 0.7f, y + 2.dp.toPx()), Offset(x + halfWidth * 0.7f, y + 2.dp.toPx()), 1.5.dp.toPx())
+    drawCircle(color = color, radius = 1.8.dp.toPx(), center = Offset(x, y - height - 1.dp.toPx()))
+
+    val label = airport.ident
+    val layout = textMeasurer.measure(
+        text = label,
+        style = TextStyle(
+            fontFamily = FontFamily.Monospace,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Bold,
+            color = color
+        )
+    )
+    drawText(layout, topLeft = Offset(x + 6.dp.toPx(), y - layout.size.height / 2f))
 }
 
 /**

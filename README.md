@@ -12,9 +12,9 @@ Turns an **Amazon Fire 7** (or any Android tablet / phone) into a dedicated, alw
 
 ## Features
 
-- **Tactical radar** — range rings (NM), home-centered crosshair, heading-aware chevrons, altitude-based coloring, fading trails, tap-to-select
+- **Tactical radar** — range rings (NM), home-centered crosshair, nearby airport tower markers, heading-aware chevrons, altitude-based coloring, fading trails, tap-to-select
 - **Detail panel** — aircraft type, registration, callsign, live distance / altitude / speed / heading, route enrichment, status badge
-- **Settings** — home lat/lon (with map picker), search radius, poll interval, keep-screen-on, trail / range-ring toggles
+- **Settings** — home lat/lon (with map picker), search radius, poll interval, keep-screen-on, trail / range-ring / airport toggles
 - **Kiosk-friendly** — immersive fullscreen landscape layout with smooth dead-reckoning between ADS-B snapshots
 
 ## Requirements
@@ -64,9 +64,9 @@ Default home location is `52.289514, -0.865019` with a 25 NM radius.
 app/src/main/java/com/atchome/atc/
 ├── MainActivity.kt          # Fullscreen kiosk activity
 ├── api/                     # adsb.fi, hexdb.io, geocoder, images
-├── data/                    # Tracker, SettingsManager
+├── data/                    # Tracker, SettingsManager, bundled airport catalog
 ├── geo/                     # Distance / NM offset math
-├── model/                   # Aircraft, TrailPoint
+├── model/                   # Aircraft, Airport, TrailPoint
 ├── ui/                      # Radar, info panel, settings, map picker
 └── viewmodel/               # Polling, enrichment, UI state
 ```

@@ -37,9 +37,11 @@ fun AtcScreen(
                 RadarView(
                     aircraftList = uiState.aircraft,
                     selectedAircraft = uiState.selectedAircraft,
+                    airports = uiState.airports,
                     rangeNm = uiState.settings.radiusNm.toFloat(),
                     showTrails = uiState.settings.showTrails,
                     showRangeRings = uiState.settings.showRangeRings,
+                    showAirports = uiState.settings.showAirports,
                     showSweep = uiState.settings.showSweep,
                     showVelocityVectors = uiState.settings.showVelocityVectors,
                     dataTagMode = uiState.settings.dataTagMode,
@@ -68,9 +70,11 @@ fun AtcScreen(
                 RadarView(
                     aircraftList = uiState.aircraft,
                     selectedAircraft = uiState.selectedAircraft,
+                    airports = uiState.airports,
                     rangeNm = uiState.settings.radiusNm.toFloat(),
                     showTrails = uiState.settings.showTrails,
                     showRangeRings = uiState.settings.showRangeRings,
+                    showAirports = uiState.settings.showAirports,
                     showSweep = uiState.settings.showSweep,
                     showVelocityVectors = uiState.settings.showVelocityVectors,
                     dataTagMode = uiState.settings.dataTagMode,

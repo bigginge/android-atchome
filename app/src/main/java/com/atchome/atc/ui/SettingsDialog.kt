@@ -66,6 +66,7 @@ fun SettingsDialog(
     var keepScreenOn by remember { mutableStateOf(initialSettings.keepScreenOn) }
     var showTrails by remember { mutableStateOf(initialSettings.showTrails) }
     var showRangeRings by remember { mutableStateOf(initialSettings.showRangeRings) }
+    var showAirports by remember { mutableStateOf(initialSettings.showAirports) }
     var showSweep by remember { mutableStateOf(initialSettings.showSweep) }
     var showVelocityVectors by remember { mutableStateOf(initialSettings.showVelocityVectors) }
     var dataTagMode by remember { mutableStateOf(initialSettings.dataTagMode) }
@@ -302,6 +303,13 @@ fun SettingsDialog(
                     checked = showRangeRings,
                     onCheckedChange = { showRangeRings = it }
                 )
+
+                SettingSwitchRow(
+                    title = "Airports",
+                    subtitle = "Show ATC tower markers in range",
+                    checked = showAirports,
+                    onCheckedChange = { showAirports = it }
+                )
             }
         },
         confirmButton = {
@@ -318,6 +326,7 @@ fun SettingsDialog(
                             keepScreenOn = keepScreenOn,
                             showTrails = showTrails,
                             showRangeRings = showRangeRings,
+                            showAirports = showAirports,
                             showSweep = showSweep,
                             showVelocityVectors = showVelocityVectors,
                             dataTagMode = dataTagMode
