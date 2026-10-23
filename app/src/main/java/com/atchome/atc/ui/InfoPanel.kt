@@ -22,12 +22,10 @@ import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.FlightLand
 import androidx.compose.material.icons.filled.FlightTakeoff
 import androidx.compose.material.icons.filled.NearMe
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -46,74 +44,31 @@ import androidx.compose.material3.CircularProgressIndicator
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.atchome.atc.model.Aircraft
-import com.atchome.atc.ui.theme.AccentAmber
-import com.atchome.atc.ui.theme.AccentGreen
-import com.atchome.atc.ui.theme.CardBackground
-import com.atchome.atc.ui.theme.InfoBackground
-import com.atchome.atc.ui.theme.TextHighlight
-import com.atchome.atc.ui.theme.TextPrimary
-import com.atchome.atc.ui.theme.TextSecondary
+import com.atchome.atc.model.aircraftClass
+import com.atchome.atc.model.shortLabel
+import com.atchome.atc.ui.theme.AtcColors
+import com.atchome.atc.ui.theme.aircraftAltitudeColor
 import java.util.Locale
 
 @Composable
 fun InfoPanel(
     selectedAircraft: Aircraft?,
-    statusMessage: String,
-    isScanning: Boolean,
-    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .fillMaxHeight()
-            .background(InfoBackground)
+            .background(AtcColors.infoBackground)
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        // Header: Title + Status indicator + Settings Icon
+        // A quiet section title keeps attention on the selected flight.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(
-                    text = "AIRCRAFT",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    color = TextPrimary
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = 2.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(
-                                color = if (isScanning) AccentAmber else AccentGreen,
-                                shape = CircleShape
-                            )
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = statusMessage,
-                        fontSize = 12.sp,
-                        color = TextSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            IconButton(onClick = onOpenSettings) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = TextSecondary
-                )
-            }
+            Text("FLIGHT DETAILS", fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp, color = AtcColors.textSecondary)
         }
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -131,21 +86,21 @@ fun InfoPanel(
                     Icon(
                         imageVector = Icons.Default.Flight,
                         contentDescription = null,
-                        tint = TextSecondary.copy(alpha = 0.4f),
+                        tint = AtcColors.textSecondary.copy(alpha = 0.4f),
                         modifier = Modifier.size(48.dp)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "No Aircraft Selected",
                         fontSize = 15.sp,
-                        color = TextSecondary,
+                        color = AtcColors.textSecondary,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Tap any blip on the radar or wait for traffic in range.",
                         fontSize = 12.sp,
-                        color = TextSecondary.copy(alpha = 0.7f),
+                        color = AtcColors.textSecondary.copy(alpha = 0.7f),
                         lineHeight = 16.sp
                     )
                 }
@@ -175,7 +130,15 @@ fun InfoPanel(
                     text = aircraftTitle,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
+                    color = AtcColors.textPrimary
+                )
+                Text(
+                    text = "${selectedAircraft.aircraftClass().shortLabel}  ·  ${selectedAircraft.typeCode.ifEmpty { "TYPE UNKNOWN" }}",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = AtcColors.highlight,
+                    modifier = Modifier.padding(top = 3.dp)
                 )
                 Row(
                     modifier = Modifier
@@ -189,7 +152,7 @@ fun InfoPanel(
                             text = "Reg: ${selectedAircraft.registration}",
                             fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace,
-                            color = TextHighlight
+                            color = AtcColors.highlight
                         )
                     } else {
                         Spacer(modifier = Modifier.width(1.dp))
@@ -198,7 +161,7 @@ fun InfoPanel(
                         text = "Age: ${selectedAircraft.formattedAge}",
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = if (selectedAircraft.ageYears != null) TextPrimary else TextSecondary
+                        color = if (selectedAircraft.ageYears != null) AtcColors.textPrimary else AtcColors.textSecondary
                     )
                 }
             }
@@ -217,20 +180,20 @@ fun InfoPanel(
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = TextPrimary
+                        color = AtcColors.textPrimary
                     )
                     Text(
                         text = "HEX ${selectedAircraft.hex.uppercase()}",
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
-                        color = TextSecondary
+                        color = AtcColors.textSecondary
                     )
                 }
                 if (selectedAircraft.registeredOwner.isNotEmpty()) {
                     Text(
                         text = selectedAircraft.registeredOwner,
                         fontSize = 13.sp,
-                        color = TextSecondary,
+                        color = AtcColors.textSecondary,
                         modifier = Modifier.padding(top = 2.dp)
                     )
                 }
@@ -248,7 +211,9 @@ fun InfoPanel(
                     value = String.format(Locale.US, "%.1f NM", selectedAircraft.distanceNm),
                     modifier = Modifier.weight(1f)
                 )
-                val altText = if (selectedAircraft.altitudeFt > 0) {
+                val altText = if (!selectedAircraft.altitudeKnown) {
+                    "ALT ?"
+                } else if (selectedAircraft.altitudeFt > 0) {
                     if (selectedAircraft.vertRateFpm != 0) {
                         String.format(Locale.US, "%,d FT %s", selectedAircraft.altitudeFt, selectedAircraft.trendSymbol)
                     } else {
@@ -259,7 +224,7 @@ fun InfoPanel(
                 TelemetryMetric(
                     label = "ALTITUDE",
                     value = altText,
-                    color = selectedAircraft.displayColor,
+                    color = AtcColors.aircraftAltitudeColor(selectedAircraft.altitudeFt, selectedAircraft.altitudeKnown),
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -295,7 +260,7 @@ fun InfoPanel(
                     Text(
                         text = if (selectedAircraft.callsign.isEmpty()) "Route unavailable" else "Fetching route info…",
                         fontSize = 13.sp,
-                        color = TextSecondary
+                        color = AtcColors.textSecondary
                     )
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -332,8 +297,8 @@ private fun InfoCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBackground)
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = AtcColors.cardBackground)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
@@ -341,7 +306,7 @@ private fun InfoCard(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
-                color = TextSecondary,
+                color = AtcColors.textSecondary,
                 letterSpacing = 0.5.sp
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -355,13 +320,13 @@ private fun TelemetryMetric(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    color: Color = TextPrimary,
+    color: Color? = null,
     icon: ImageVector? = null
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBackground)
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = AtcColors.cardBackground)
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -369,7 +334,7 @@ private fun TelemetryMetric(
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = TextSecondary,
+                        tint = AtcColors.textSecondary,
                         modifier = Modifier.size(12.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
@@ -379,7 +344,7 @@ private fun TelemetryMetric(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    color = TextSecondary
+                    color = AtcColors.textSecondary
                 )
             }
             Spacer(modifier = Modifier.height(2.dp))
@@ -388,7 +353,7 @@ private fun TelemetryMetric(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
-                color = color
+                color = color ?: AtcColors.textPrimary
             )
         }
     }
@@ -409,7 +374,7 @@ private fun RoutePointRow(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = TextHighlight,
+            tint = AtcColors.highlight,
             modifier = Modifier
                 .padding(top = 2.dp)
                 .size(16.dp)
@@ -425,7 +390,7 @@ private fun RoutePointRow(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    color = TextSecondary
+                    color = AtcColors.textSecondary
                 )
                 if (icao.isNotEmpty()) {
                     Spacer(modifier = Modifier.width(6.dp))
@@ -434,14 +399,14 @@ private fun RoutePointRow(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = TextHighlight
+                        color = AtcColors.highlight
                     )
                 }
             }
             Text(
                 text = name.ifEmpty { icao.ifEmpty { "—" } },
                 fontSize = 13.sp,
-                color = TextPrimary,
+                color = AtcColors.textPrimary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -451,7 +416,7 @@ private fun RoutePointRow(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    color = TextHighlight,
+                    color = AtcColors.highlight,
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
@@ -468,8 +433,8 @@ private fun AircraftImageCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBackground)
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = AtcColors.cardBackground)
     ) {
         if (!imageUrl.isNullOrEmpty()) {
             Box(
@@ -520,13 +485,13 @@ private fun AircraftImageCard(
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = TextSecondary
+                        color = AtcColors.textSecondary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Fetching aircraft photo…",
                         fontSize = 12.sp,
-                        color = TextSecondary
+                        color = AtcColors.textSecondary
                     )
                 }
             }

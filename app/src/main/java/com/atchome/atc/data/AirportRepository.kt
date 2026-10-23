@@ -54,7 +54,8 @@ class AirportRepository(private val context: Context) {
                     lat = rec.lat,
                     lon = rec.lon,
                     eastNm = eastNm,
-                    northNm = northNm
+                    northNm = northNm,
+                    type = rec.type
                 )
             }
         }

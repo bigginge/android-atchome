@@ -24,6 +24,7 @@ data class Aircraft(
     var distanceNm: Float = 0f,
     var trackDeg: Float = 0f,
     var altitudeFt: Int = 0,
+    var altitudeKnown: Boolean = false,
     var vertRateFpm: Int = 0,
     var groundSpeedKts: Float = 0f,
 
@@ -91,6 +92,7 @@ data class Aircraft(
 
     val formattedAltitude: String
         get() = when {
+            !altitudeKnown -> "ALT ?"
             altitudeFt <= 0 -> "GND"
             altitudeFt >= 18000 -> "FL${(altitudeFt + 50) / 100}"
             else -> String.format(java.util.Locale.US, "%03d", (altitudeFt + 50) / 100)

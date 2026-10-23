@@ -9,5 +9,6 @@ data class Airport(
     val lat: Double,
     val lon: Double,
     val eastNm: Float,
-    val northNm: Float
+    val northNm: Float,
+    val type: String = "medium"
 )

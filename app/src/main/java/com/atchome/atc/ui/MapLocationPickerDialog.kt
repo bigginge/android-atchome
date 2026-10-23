@@ -61,11 +61,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.DialogProperties
 import com.atchome.atc.api.GeocodeResult
 import com.atchome.atc.api.NominatimGeocoder
-import com.atchome.atc.ui.theme.CardBackground
-import com.atchome.atc.ui.theme.InfoBackground
-import com.atchome.atc.ui.theme.TextHighlight
-import com.atchome.atc.ui.theme.TextPrimary
-import com.atchome.atc.ui.theme.TextSecondary
+import com.atchome.atc.ui.theme.AtcColors
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -139,7 +135,7 @@ fun MapLocationPickerDialog(
         modifier = Modifier
             .fillMaxWidth(0.92f)
             .height(580.dp),
-        containerColor = InfoBackground,
+        containerColor = AtcColors.infoBackground,
         shape = RoundedCornerShape(14.dp),
         title = {
             Row(
@@ -153,13 +149,13 @@ fun MapLocationPickerDialog(
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = TextHighlight,
+                        color = AtcColors.highlight,
                         letterSpacing = 1.sp
                     )
                     Text(
                         text = "Search, tap, or drag the pin to set your radar center",
                         fontSize = 11.sp,
-                        color = TextSecondary
+                        color = AtcColors.textSecondary
                     )
                 }
 
@@ -181,7 +177,7 @@ fun MapLocationPickerDialog(
                     Icon(
                         imageVector = Icons.Default.MyLocation,
                         contentDescription = "My GPS Location",
-                        tint = TextHighlight
+                        tint = AtcColors.highlight
                     )
                 }
             }
@@ -207,18 +203,18 @@ fun MapLocationPickerDialog(
                         textStyle = androidx.compose.ui.text.TextStyle(
                             fontSize = 13.sp,
                             fontFamily = FontFamily.Monospace,
-                            color = TextPrimary
+                            color = AtcColors.textPrimary
                         ),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = TextHighlight,
-                            unfocusedBorderColor = TextSecondary.copy(alpha = 0.45f),
-                            cursorColor = TextHighlight,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary,
-                            focusedPlaceholderColor = TextSecondary,
-                            unfocusedPlaceholderColor = TextSecondary,
-                            focusedContainerColor = CardBackground,
-                            unfocusedContainerColor = CardBackground
+                            focusedBorderColor = AtcColors.highlight,
+                            unfocusedBorderColor = AtcColors.textSecondary.copy(alpha = 0.45f),
+                            cursorColor = AtcColors.highlight,
+                            focusedTextColor = AtcColors.textPrimary,
+                            unfocusedTextColor = AtcColors.textPrimary,
+                            focusedPlaceholderColor = AtcColors.textSecondary,
+                            unfocusedPlaceholderColor = AtcColors.textSecondary,
+                            focusedContainerColor = AtcColors.cardBackground,
+                            unfocusedContainerColor = AtcColors.cardBackground
                         ),
                         shape = RoundedCornerShape(8.dp),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -229,7 +225,7 @@ fun MapLocationPickerDialog(
                                     modifier = Modifier
                                         .padding(end = 10.dp)
                                         .size(18.dp),
-                                    color = TextHighlight,
+                                    color = AtcColors.highlight,
                                     strokeWidth = 2.dp
                                 )
                             } else {
@@ -237,7 +233,7 @@ fun MapLocationPickerDialog(
                                     Icon(
                                         imageVector = Icons.Default.Search,
                                         contentDescription = "Search",
-                                        tint = TextHighlight
+                                        tint = AtcColors.highlight
                                     )
                                 }
                             }
@@ -249,7 +245,7 @@ fun MapLocationPickerDialog(
                     Text(
                         text = searchMessage!!,
                         fontSize = 11.sp,
-                        color = TextSecondary,
+                        color = AtcColors.textSecondary,
                         modifier = Modifier.padding(top = 6.dp, start = 2.dp)
                     )
                 }
@@ -260,14 +256,14 @@ fun MapLocationPickerDialog(
                             .fillMaxWidth()
                             .padding(top = 6.dp)
                             .heightIn(max = 120.dp)
-                            .background(CardBackground, RoundedCornerShape(8.dp))
+                            .background(AtcColors.cardBackground, RoundedCornerShape(8.dp))
                             .verticalScroll(rememberScrollState())
                     ) {
                         searchResults.forEachIndexed { index, place ->
                             Text(
                                 text = place.displayName,
                                 fontSize = 12.sp,
-                                color = TextPrimary,
+                                color = AtcColors.textPrimary,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier
@@ -286,7 +282,7 @@ fun MapLocationPickerDialog(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(1.dp)
-                                        .background(TextSecondary.copy(alpha = 0.2f))
+                                        .background(AtcColors.textSecondary.copy(alpha = 0.2f))
                                 )
                             }
                         }
@@ -302,7 +298,7 @@ fun MapLocationPickerDialog(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .background(CardBackground, RoundedCornerShape(8.dp))
+                        .background(AtcColors.cardBackground, RoundedCornerShape(8.dp))
                 ) {
                     AndroidView(
                         modifier = Modifier.fillMaxSize(),
@@ -374,7 +370,7 @@ fun MapLocationPickerDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(CardBackground, RoundedCornerShape(6.dp))
+                        .background(AtcColors.cardBackground, RoundedCornerShape(6.dp))
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -384,14 +380,14 @@ fun MapLocationPickerDialog(
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = AtcColors.textPrimary
                     )
                     Text(
                         text = String.format(Locale.US, "LON: %.6f", selectedLon),
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = AtcColors.textPrimary
                     )
                 }
             }
@@ -399,18 +395,18 @@ fun MapLocationPickerDialog(
         confirmButton = {
             Button(
                 onClick = { onLocationConfirmed(selectedLat, selectedLon) },
-                colors = ButtonDefaults.buttonColors(containerColor = TextHighlight)
+                colors = ButtonDefaults.buttonColors(containerColor = AtcColors.highlight)
             ) {
                 Text(
                     text = "Apply Base Location",
-                    color = CardBackground,
+                    color = AtcColors.cardBackground,
                     fontWeight = FontWeight.Bold
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = "Cancel", color = TextSecondary)
+                Text(text = "Cancel", color = AtcColors.textSecondary)
             }
         }
     )

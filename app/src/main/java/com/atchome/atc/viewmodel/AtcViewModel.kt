@@ -13,6 +13,8 @@ import com.atchome.atc.data.Tracker
 import com.atchome.atc.model.Aircraft
 import com.atchome.atc.model.AircraftHighlightFilters
 import com.atchome.atc.model.Airport
+import com.atchome.atc.model.RadarAircraft
+import com.atchome.atc.model.toRadarAircraft
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -45,6 +47,10 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(AtcUiState(settings = settingsManager.loadSettings()))
     val uiState: StateFlow<AtcUiState> = _uiState.asStateFlow()
+
+    // Fast-moving radar data is isolated so Compose doesn't rebuild the detail rail at 10 Hz.
+    private val _radarAircraft = MutableStateFlow<List<RadarAircraft>>(emptyList())
+    val radarAircraft: StateFlow<List<RadarAircraft>> = _radarAircraft.asStateFlow()
 
     private var pollJob: Job? = null
     private var tickerJob: Job? = null
@@ -98,8 +104,13 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
         ) {
             refreshNearbyAirports()
         }
-        // Restart polling with new coordinates/interval
-        startPolling()
+        if (previous.homeLat != newSettings.homeLat ||
+            previous.homeLon != newSettings.homeLon ||
+            previous.radiusNm != newSettings.radiusNm ||
+            previous.refreshIntervalSeconds != newSettings.refreshIntervalSeconds
+        ) {
+            startPolling()
+        }
     }
 
     private fun refreshNearbyAirports() {
@@ -207,6 +218,7 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
                     statusMessage = status,
                     isScanning = false
                 )
+                publishRadarSnapshot()
                 triggerEnrichment(tracker.selected())
             }.onFailure {
                 val status = if (tracker.getAircraft().isEmpty()) {
@@ -351,21 +363,34 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
         tickerJob?.cancel()
         tickerJob = viewModelScope.launch(Dispatchers.Default) {
             var lastTime = System.currentTimeMillis()
+            var detailUpdateTime = lastTime
             while (isActive) {
-                delay(100) // 10 FPS extrapolation
+                delay(50) // 20 FPS radar-only position updates; detail UI updates at 2 Hz
                 val now = System.currentTimeMillis()
                 val dt = (now - lastTime) / 1000f
                 lastTime = now
 
                 tracker.updatePositions(dt)
-                withContext(Dispatchers.Main) {
-                    updateUiStateFromTracker()
+                publishRadarSnapshot()
+                if (now - detailUpdateTime >= 500L) {
+                    detailUpdateTime = now
+                    withContext(Dispatchers.Main) {
+                        val selected = tracker.selected()?.copy()
+                        if (_uiState.value.selectedAircraft != selected) {
+                            _uiState.value = _uiState.value.copy(selectedAircraft = selected)
+                        }
+                    }
                 }
             }
         }
     }
 
+    private fun publishRadarSnapshot() {
+        _radarAircraft.value = tracker.getAircraft().map(Aircraft::toRadarAircraft)
+    }
+
     private fun updateUiStateFromTracker() {
+        publishRadarSnapshot()
         _uiState.value = _uiState.value.copy(
             aircraft = tracker.getAircraft(),
             selectedAircraft = tracker.selected()?.copy()

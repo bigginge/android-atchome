@@ -36,11 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.atchome.atc.model.AircraftHighlightFilters
 import com.atchome.atc.model.Aircraft
-import com.atchome.atc.ui.theme.CardBackground
-import com.atchome.atc.ui.theme.RadarBackground
-import com.atchome.atc.ui.theme.TextHighlight
-import com.atchome.atc.ui.theme.TextPrimary
-import com.atchome.atc.ui.theme.TextSecondary
+import com.atchome.atc.ui.theme.AtcColors
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -53,16 +49,16 @@ fun AircraftHighlightFilterSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = RadarBackground,
-        contentColor = TextPrimary,
+        containerColor = AtcColors.radarBackground,
+        contentColor = AtcColors.textPrimary,
         scrimColor = Color.Black.copy(alpha = 0.65f)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("HIGHLIGHT AIRCRAFT", fontWeight = FontWeight.Bold, color = TextHighlight, letterSpacing = 1.sp)
-            Text("Matching aircraft stand out; other traffic stays visible.", fontSize = 13.sp, color = TextSecondary)
+            Text("HIGHLIGHT AIRCRAFT", fontWeight = FontWeight.Bold, color = AtcColors.highlight, letterSpacing = 1.sp)
+            Text("Matching aircraft stand out; other traffic stays visible.", fontSize = 13.sp, color = AtcColors.textSecondary)
             FilterField("Type", "e.g. A320", filters.type, aircraft.typeSuggestions()) { onFiltersChange(filters.copy(type = it)) }
             FilterField("Airline / callsign", "Callsign starts with… e.g. BAW", filters.airlineCallsign, aircraft.callsignSuggestions()) {
                 onFiltersChange(filters.copy(airlineCallsign = it))
@@ -72,9 +68,9 @@ fun AircraftHighlightFilterSheet(
                 onFiltersChange(filters.copy(destination = it))
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onClear) { Text("Clear filters", color = TextSecondary) }
-                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = TextHighlight)) {
-                    Text("Done", color = CardBackground, fontWeight = FontWeight.Bold)
+                TextButton(onClick = onClear) { Text("Clear filters", color = AtcColors.textSecondary) }
+                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = AtcColors.highlight)) {
+                    Text("Done", color = AtcColors.cardBackground, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -111,20 +107,20 @@ private fun FilterField(
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().onFocusChanged { isFocused = it.isFocused },
             label = { Text(label) },
-            placeholder = { Text(placeholder, color = TextSecondary) },
+            placeholder = { Text(placeholder, color = AtcColors.textSecondary) },
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary,
-                focusedBorderColor = TextHighlight,
-                unfocusedBorderColor = TextSecondary,
-                focusedLabelColor = TextHighlight,
-                unfocusedLabelColor = TextSecondary,
-                cursorColor = TextHighlight
+                focusedTextColor = AtcColors.textPrimary,
+                unfocusedTextColor = AtcColors.textPrimary,
+                focusedBorderColor = AtcColors.highlight,
+                unfocusedBorderColor = AtcColors.textSecondary,
+                focusedLabelColor = AtcColors.highlight,
+                unfocusedLabelColor = AtcColors.textSecondary,
+                cursorColor = AtcColors.highlight
             )
         )
         if (visibleSuggestions.isNotEmpty()) {
-            Text("IN RANGE", modifier = Modifier.padding(start = 2.dp, top = 5.dp), fontSize = 9.sp, color = TextSecondary, letterSpacing = 0.6.sp)
+            Text("IN RANGE", modifier = Modifier.padding(start = 2.dp, top = 5.dp), fontSize = 9.sp, color = AtcColors.textSecondary, letterSpacing = 0.6.sp)
             Row(
                 modifier = Modifier.fillMaxWidth()
                     .bringIntoViewRequester(suggestionsRequester)
@@ -136,8 +132,8 @@ private fun FilterField(
                         onClick = { onValueChange(suggestion.value) },
                         label = { Text(suggestion.label, maxLines = 1, fontSize = 11.sp) },
                         colors = SuggestionChipDefaults.suggestionChipColors(
-                            containerColor = CardBackground,
-                            labelColor = TextPrimary
+                            containerColor = AtcColors.cardBackground,
+                            labelColor = AtcColors.textPrimary
                         )
                     )
                 }

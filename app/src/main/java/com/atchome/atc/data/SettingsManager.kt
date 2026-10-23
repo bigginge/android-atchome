@@ -17,7 +17,9 @@ data class AppSettings(
     val showLargeAirports: Boolean = true,
     val showSweep: Boolean = true,
     val showVelocityVectors: Boolean = true,
-    val dataTagMode: String = "COMPACT" // "SELECTED", "COMPACT", "FULL"
+    val dataTagMode: String = "COMPACT", // "SELECTED", "COMPACT", "FULL"
+    val themeMode: String = "SYSTEM", // "SYSTEM", "LIGHT", "DARK"
+    val reduceMotion: Boolean = false
 )
 
 class SettingsManager(context: Context) {
@@ -39,7 +41,9 @@ class SettingsManager(context: Context) {
             showLargeAirports = prefs.getBoolean(KEY_SHOW_LARGE_AIRPORTS, true),
             showSweep = prefs.getBoolean(KEY_SHOW_SWEEP, true),
             showVelocityVectors = prefs.getBoolean(KEY_SHOW_VELOCITY_VECTORS, true),
-            dataTagMode = prefs.getString(KEY_DATA_TAG_MODE, "COMPACT") ?: "COMPACT"
+            dataTagMode = prefs.getString(KEY_DATA_TAG_MODE, "COMPACT") ?: "COMPACT",
+            themeMode = prefs.getString(KEY_THEME_MODE, "SYSTEM") ?: "SYSTEM",
+            reduceMotion = prefs.getBoolean(KEY_REDUCE_MOTION, false)
         )
     }
 
@@ -59,6 +63,8 @@ class SettingsManager(context: Context) {
             .putBoolean(KEY_SHOW_SWEEP, settings.showSweep)
             .putBoolean(KEY_SHOW_VELOCITY_VECTORS, settings.showVelocityVectors)
             .putString(KEY_DATA_TAG_MODE, settings.dataTagMode)
+            .putString(KEY_THEME_MODE, settings.themeMode)
+            .putBoolean(KEY_REDUCE_MOTION, settings.reduceMotion)
             .apply()
     }
 
@@ -77,5 +83,7 @@ class SettingsManager(context: Context) {
         private const val KEY_SHOW_SWEEP = "show_sweep"
         private const val KEY_SHOW_VELOCITY_VECTORS = "show_velocity_vectors"
         private const val KEY_DATA_TAG_MODE = "data_tag_mode"
+        private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_REDUCE_MOTION = "reduce_motion"
     }
 }

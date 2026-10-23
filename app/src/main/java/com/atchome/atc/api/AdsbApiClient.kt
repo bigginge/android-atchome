@@ -89,6 +89,11 @@ class AdsbApiClient(
                         is String -> altBaroRaw.toIntOrNull() ?: 0
                         else -> 0
                     }
+                    val altitudeKnown = when (altBaroRaw) {
+                        is Number -> true
+                        is String -> altBaroRaw.equals("ground", ignoreCase = true) || altBaroRaw.toIntOrNull() != null
+                        else -> false
+                    }
 
                     val gsRaw = item.opt("gs")
                     val groundSpeedKts = when (gsRaw) {
@@ -126,6 +131,7 @@ class AdsbApiClient(
                         distanceNm = distanceNm,
                         trackDeg = trackDeg,
                         altitudeFt = altitudeFt,
+                        altitudeKnown = altitudeKnown,
                         vertRateFpm = vertRateFpm,
                         groundSpeedKts = groundSpeedKts
                     )

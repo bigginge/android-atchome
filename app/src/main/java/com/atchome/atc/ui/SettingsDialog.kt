@@ -46,11 +46,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.atchome.atc.data.AppSettings
-import com.atchome.atc.ui.theme.CardBackground
-import com.atchome.atc.ui.theme.InfoBackground
-import com.atchome.atc.ui.theme.TextHighlight
-import com.atchome.atc.ui.theme.TextPrimary
-import com.atchome.atc.ui.theme.TextSecondary
+import com.atchome.atc.ui.theme.AtcColors
 import java.util.Locale
 
 @Composable
@@ -73,6 +69,8 @@ fun SettingsDialog(
     var showSweep by remember { mutableStateOf(initialSettings.showSweep) }
     var showVelocityVectors by remember { mutableStateOf(initialSettings.showVelocityVectors) }
     var dataTagMode by remember { mutableStateOf(initialSettings.dataTagMode) }
+    var themeMode by remember { mutableStateOf(initialSettings.themeMode) }
+    var reduceMotion by remember { mutableStateOf(initialSettings.reduceMotion) }
     var isMapPickerOpen by remember { mutableStateOf(false) }
 
     if (isMapPickerOpen) {
@@ -90,14 +88,14 @@ fun SettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = InfoBackground,
+        containerColor = AtcColors.infoBackground,
         shape = RoundedCornerShape(12.dp),
         title = {
             Text(
                 text = "ATC Radar Settings",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary
+                color = AtcColors.textPrimary
             )
         },
         text = {
@@ -117,14 +115,14 @@ fun SettingsDialog(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = TextHighlight,
+                        color = AtcColors.highlight,
                         letterSpacing = 0.5.sp
                     )
 
                     OutlinedButton(
                         onClick = { isMapPickerOpen = true },
                         shape = RoundedCornerShape(6.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextHighlight),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AtcColors.highlight),
                         modifier = Modifier.height(32.dp)
                     ) {
                         Icon(
@@ -170,14 +168,14 @@ fun SettingsDialog(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = TextHighlight
+                        color = AtcColors.highlight
                     )
                     Text(
                         text = "${radiusNm.toInt()} NM",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = TextPrimary
+                        color = AtcColors.textPrimary
                     )
                 }
                 Slider(
@@ -186,8 +184,8 @@ fun SettingsDialog(
                     valueRange = 5f..100f,
                     steps = 18,
                     colors = SliderDefaults.colors(
-                        thumbColor = TextHighlight,
-                        activeTrackColor = TextHighlight
+                        thumbColor = AtcColors.highlight,
+                        activeTrackColor = AtcColors.highlight
                     )
                 )
 
@@ -203,14 +201,14 @@ fun SettingsDialog(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = TextHighlight
+                        color = AtcColors.highlight
                     )
                     Text(
                         text = "${refreshIntervalSec.toInt()}s",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        color = TextPrimary
+                        color = AtcColors.textPrimary
                     )
                 }
                 Slider(
@@ -219,8 +217,8 @@ fun SettingsDialog(
                     valueRange = 5f..60f,
                     steps = 10,
                     colors = SliderDefaults.colors(
-                        thumbColor = TextHighlight,
-                        activeTrackColor = TextHighlight
+                        thumbColor = AtcColors.highlight,
+                        activeTrackColor = AtcColors.highlight
                     )
                 )
 
@@ -232,14 +230,14 @@ fun SettingsDialog(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace,
-                    color = TextHighlight,
+                    color = AtcColors.highlight,
                     letterSpacing = 0.5.sp
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(CardBackground, RoundedCornerShape(6.dp))
+                        .background(AtcColors.cardBackground, RoundedCornerShape(6.dp))
                         .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -254,7 +252,7 @@ fun SettingsDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(if (isSelected) TextHighlight else CardBackground)
+                                .background(if (isSelected) AtcColors.highlight else AtcColors.cardBackground)
                                 .clickable { dataTagMode = modeKey }
                                 .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center
@@ -263,11 +261,37 @@ fun SettingsDialog(
                                 text = modeLabel,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isSelected) CardBackground else TextSecondary
+                                color = if (isSelected) AtcColors.cardBackground else AtcColors.textSecondary
                             )
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("APPEARANCE", fontSize = 11.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = AtcColors.highlight, letterSpacing = 0.5.sp)
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().background(AtcColors.cardBackground, RoundedCornerShape(8.dp)).padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf("SYSTEM" to "System", "LIGHT" to "Light", "DARK" to "Dark").forEach { (key, label) ->
+                        val selected = themeMode == key
+                        Box(
+                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp))
+                                .background(if (selected) AtcColors.highlight else AtcColors.cardBackground)
+                                .clickable { themeMode = key }.padding(vertical = 9.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (selected) AtcColors.cardBackground else AtcColors.textSecondary)
+                        }
+                    }
+                }
+                SettingSwitchRow(
+                    title = "Reduce Motion",
+                    subtitle = "Freeze sweep and selection animations",
+                    checked = reduceMotion,
+                    onCheckedChange = { reduceMotion = it }
+                )
 
                 Spacer(modifier = Modifier.height(14.dp))
 
@@ -356,18 +380,20 @@ fun SettingsDialog(
                             showLargeAirports = showLargeAirports,
                             showSweep = showSweep,
                             showVelocityVectors = showVelocityVectors,
-                            dataTagMode = dataTagMode
+                            dataTagMode = dataTagMode,
+                            themeMode = themeMode,
+                            reduceMotion = reduceMotion
                         )
                     )
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = TextHighlight)
+                colors = ButtonDefaults.buttonColors(containerColor = AtcColors.highlight)
             ) {
-                Text(text = "Save & Apply", color = CardBackground, fontWeight = FontWeight.Bold)
+                Text(text = "Save & Apply", color = AtcColors.cardBackground, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = "Cancel", color = TextSecondary)
+                Text(text = "Cancel", color = AtcColors.textSecondary)
             }
         }
     )
@@ -388,16 +414,16 @@ private fun SettingSwitchRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, fontSize = 13.sp, color = TextPrimary, fontWeight = FontWeight.Medium)
-            Text(text = subtitle, fontSize = 11.sp, color = TextSecondary)
+            Text(text = title, fontSize = 13.sp, color = AtcColors.textPrimary, fontWeight = FontWeight.Medium)
+            Text(text = subtitle, fontSize = 11.sp, color = AtcColors.textSecondary)
         }
         Spacer(modifier = Modifier.width(8.dp))
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = TextHighlight,
-                checkedTrackColor = CardBackground
+                checkedThumbColor = AtcColors.highlight,
+                checkedTrackColor = AtcColors.cardBackground
             )
         )
     }

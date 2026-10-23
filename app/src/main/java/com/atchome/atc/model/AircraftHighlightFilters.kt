@@ -11,13 +11,21 @@ data class AircraftHighlightFilters(
             origin.isNotBlank() || destination.isNotBlank()
 
     fun matches(aircraft: Aircraft): Boolean {
+        return matches(aircraft.typeCode, aircraft.typeDescription, aircraft.callsign, aircraft.origin, aircraft.originIcao, aircraft.destination, aircraft.destinationIcao)
+    }
+
+    fun matches(aircraft: RadarAircraft): Boolean {
+        return matches(aircraft.typeCode, aircraft.typeDescription, aircraft.callsign, aircraft.origin, aircraft.originIcao, aircraft.destination, aircraft.destinationIcao)
+    }
+
+    private fun matches(typeCode: String, typeDescription: String, callsign: String, origin: String, originIcao: String, destination: String, destinationIcao: String): Boolean {
         fun contains(value: String, query: String) =
             query.isBlank() || value.contains(query.trim(), ignoreCase = true)
 
-        return contains("${aircraft.typeCode} ${aircraft.typeDescription}", type) &&
-            (airlineCallsign.isBlank() || aircraft.callsign.startsWith(airlineCallsign.trim(), ignoreCase = true)) &&
-            contains("${aircraft.origin} ${aircraft.originIcao}", origin) &&
-            contains("${aircraft.destination} ${aircraft.destinationIcao}", destination)
+        return contains("$typeCode $typeDescription", type) &&
+            (airlineCallsign.isBlank() || callsign.startsWith(airlineCallsign.trim(), ignoreCase = true)) &&
+            contains("$origin $originIcao", this.origin) &&
+            contains("$destination $destinationIcao", this.destination)
     }
 
     fun summary(): String = listOfNotNull(

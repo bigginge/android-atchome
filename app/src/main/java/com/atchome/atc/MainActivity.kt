@@ -20,7 +20,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.atchome.atc.ui.AtcScreen
 import com.atchome.atc.ui.theme.AtcHomeTheme
-import com.atchome.atc.ui.theme.RadarBackground
+import com.atchome.atc.ui.theme.AtcColors
 import com.atchome.atc.viewmodel.AtcViewModel
 
 class MainActivity : ComponentActivity() {
@@ -45,10 +45,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            AtcHomeTheme {
+            AtcHomeTheme(themeMode = uiState.settings.themeMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = RadarBackground
+                    color = AtcColors.radarBackground
                 ) {
                     AtcScreen(viewModel = viewModel)
                 }
