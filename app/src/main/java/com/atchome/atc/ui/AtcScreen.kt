@@ -116,6 +116,7 @@ fun AtcScreen(
         if (uiState.isHighlightFilterSheetOpen) {
             AircraftHighlightFilterSheet(
                 filters = uiState.highlightFilters,
+                aircraft = uiState.aircraft,
                 onFiltersChange = { viewModel.updateHighlightFilters(it) },
                 onClear = { viewModel.clearHighlightFilters() },
                 onDismiss = { viewModel.closeHighlightFilters() }
