@@ -12,20 +12,26 @@ class Tracker {
     private var selectedHex: String = ""
     private var autoSelected: Boolean = true
 
+    @Synchronized
     fun getAircraft(): List<Aircraft> = aircraftList.toList()
 
+    @Synchronized
     fun selected(): Aircraft? = findByHex(selectedHex)
 
+    @Synchronized
     fun hasSelection(): Boolean = selectedHex.isNotEmpty()
 
+    @Synchronized
     fun isAutoSelected(): Boolean = autoSelected
 
+    @Synchronized
     fun clear() {
         aircraftList.clear()
         selectedHex = ""
         autoSelected = true
     }
 
+    @Synchronized
     fun mergeSnapshot(incoming: List<Aircraft>) {
         val previous = aircraftList.associateBy { it.hex.uppercase() }
         aircraftList.clear()
@@ -56,6 +62,7 @@ class Tracker {
         }
     }
 
+    @Synchronized
     fun selectNearest() {
         if (aircraftList.isEmpty()) {
             selectedHex = ""
@@ -67,6 +74,7 @@ class Tracker {
         }
     }
 
+    @Synchronized
     fun selectByHex(hex: String): Boolean {
         val ac = findByHex(hex) ?: return false
         selectedHex = ac.hex
@@ -78,6 +86,7 @@ class Tracker {
      * Hit-test nearest aircraft within hitRadiusNm.
      * If no aircraft within radius, reverts to auto-selecting the nearest aircraft.
      */
+    @Synchronized
     fun selectNearestTo(eastNm: Float, northNm: Float, hitRadiusNm: Float): Aircraft? {
         var best: Aircraft? = null
         var bestDist2 = hitRadiusNm * hitRadiusNm
@@ -106,6 +115,7 @@ class Tracker {
     /**
      * Dead-reckoning extrapolation for smooth aircraft animation between polling snapshots.
      */
+    @Synchronized
     fun updatePositions(dtSeconds: Float) {
         for (ac in aircraftList) {
             if (ac.groundSpeedKts > 0f) {
