@@ -944,81 +944,16 @@ private fun DrawScope.drawAircraftBlip(
 
     val aircraftClass = ac.aircraftClass()
     val symbolColor = if (!ac.seen) palette.amber else if (aircraftClass == AircraftClass.UNKNOWN) palette.textSecondary.copy(alpha = dimAlpha) else blipColor
-    // Dense traffic keeps class-specific silhouettes, scaled down to reduce overlap.
-    val symbolScale = if (simplifiedSymbol && !isSelected) 0.76f else 1f
-    val len = if (isSelected) 18.dp.toPx() else 15.dp.toPx()
-    val half = if (isSelected) 13.dp.toPx() else 11.dp.toPx()
-    scale(symbolScale, pivot = center) {
-        rotate(degrees = ac.trackDeg, pivot = center) {
-        when (aircraftClass) {
-            AircraftClass.HELICOPTER -> {
-                val rotor = if (isSelected) 12.dp.toPx() else 9.dp.toPx()
-                val rotorY = y - len * 0.2f
-                drawLine(symbolColor, Offset(x - rotor, rotorY - 2.dp.toPx()), Offset(x + rotor, rotorY + 2.dp.toPx()), 1.5.dp.toPx(), cap = StrokeCap.Round)
-                drawLine(symbolColor, Offset(x - rotor, rotorY + 2.dp.toPx()), Offset(x + rotor, rotorY - 2.dp.toPx()), 1.5.dp.toPx(), cap = StrokeCap.Round)
-                drawOval(
-                    color = symbolColor,
-                    topLeft = Offset(x - 2.5.dp.toPx(), rotorY - 4.dp.toPx()),
-                    size = Size(5.dp.toPx(), 8.dp.toPx())
-                )
-                drawLine(symbolColor, Offset(x, rotorY + 4.dp.toPx()), Offset(x, y + len * 0.73f), 1.5.dp.toPx(), cap = StrokeCap.Round)
-                drawLine(symbolColor, Offset(x - 3.dp.toPx(), y + len * 0.72f), Offset(x + 3.dp.toPx(), y + len * 0.72f), 1.5.dp.toPx(), cap = StrokeCap.Round)
-            }
-            AircraftClass.LIGHT -> {
-                drawPlaneSilhouette(
-                    center = center,
-                    length = len,
-                    halfSpan = half,
-                    wingRootLeading = -0.18f,
-                    wingTipLeading = -0.22f,
-                    wingTipTrailing = 0.02f,
-                    wingRootTrailing = 0.12f,
-                    tailHalfSpan = half * 0.38f,
-                    color = symbolColor
-                )
-            }
-            AircraftClass.MILITARY -> {
-                drawPlaneSilhouette(
-                    center = center,
-                    length = len,
-                    halfSpan = half * 0.92f,
-                    wingRootLeading = -0.42f,
-                    wingTipLeading = 0.16f,
-                    wingTipTrailing = 0.28f,
-                    wingRootTrailing = -0.08f,
-                    tailHalfSpan = half * 0.28f,
-                    color = symbolColor
-                )
-            }
-            AircraftClass.AIRLINER -> {
-                drawPlaneSilhouette(
-                    center = center,
-                    length = len,
-                    halfSpan = half,
-                    wingRootLeading = -0.12f,
-                    wingTipLeading = 0.28f,
-                    wingTipTrailing = 0.46f,
-                    wingRootTrailing = 0.12f,
-                    tailHalfSpan = half * 0.46f,
-                    color = symbolColor
-                )
-            }
-            AircraftClass.UNKNOWN -> {
-                drawPlaneSilhouette(
-                    center = center,
-                    length = len,
-                    halfSpan = half,
-                    wingRootLeading = -0.08f,
-                    wingTipLeading = 0.22f,
-                    wingTipTrailing = 0.4f,
-                    wingRootTrailing = 0.12f,
-                    tailHalfSpan = half * 0.4f,
-                    color = symbolColor
-                )
-            }
-        }
-        }
-    }
+
+    drawFlightRadarAircraftSymbol(
+        aircraftClass = aircraftClass,
+        center = center,
+        trackDeg = ac.trackDeg,
+        symbolColor = symbolColor,
+        isSelected = isSelected,
+        simplifiedSymbol = simplifiedSymbol,
+        dimAlpha = dimAlpha
+    )
     if (!ac.altitudeKnown) {
         drawCircle(palette.unknownTraffic.copy(alpha = dimAlpha), 10.dp.toPx(), center, style = Stroke(width = 0.9.dp.toPx()))
     }
@@ -1102,45 +1037,6 @@ private fun DrawScope.drawAircraftBlip(
             scopeSize = scopeSize
         )
     }
-}
-
-private fun DrawScope.drawPlaneSilhouette(
-    center: Offset,
-    length: Float,
-    halfSpan: Float,
-    wingRootLeading: Float,
-    wingTipLeading: Float,
-    wingTipTrailing: Float,
-    wingRootTrailing: Float,
-    tailHalfSpan: Float,
-    color: Color
-) {
-    val x = center.x
-    val y = center.y
-    val fuselageHalf = 1.35.dp.toPx()
-    val silhouette = Path().apply {
-        moveTo(x, y - length)
-        lineTo(x + fuselageHalf * 0.55f, y - length * 0.82f)
-        lineTo(x + fuselageHalf, y + length * wingRootLeading)
-        lineTo(x + halfSpan, y + length * wingTipLeading)
-        lineTo(x + halfSpan * 0.94f, y + length * wingTipTrailing)
-        lineTo(x + fuselageHalf, y + length * wingRootTrailing)
-        lineTo(x + fuselageHalf, y + length * 0.7f)
-        lineTo(x + tailHalfSpan, y + length * 0.9f)
-        lineTo(x + tailHalfSpan * 0.9f, y + length * 0.99f)
-        lineTo(x + fuselageHalf * 0.35f, y + length * 0.84f)
-        lineTo(x - fuselageHalf * 0.35f, y + length * 0.84f)
-        lineTo(x - tailHalfSpan * 0.9f, y + length * 0.99f)
-        lineTo(x - tailHalfSpan, y + length * 0.9f)
-        lineTo(x - fuselageHalf, y + length * 0.7f)
-        lineTo(x - fuselageHalf, y + length * wingRootTrailing)
-        lineTo(x - halfSpan * 0.94f, y + length * wingTipTrailing)
-        lineTo(x - halfSpan, y + length * wingTipLeading)
-        lineTo(x - fuselageHalf, y + length * wingRootLeading)
-        lineTo(x - fuselageHalf * 0.55f, y - length * 0.82f)
-        close()
-    }
-    drawPath(silhouette, color)
 }
 
 private fun DrawScope.drawAircraftTag(
