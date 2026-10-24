@@ -303,7 +303,7 @@ fun RadarView(
                     pxPerNm = pxPerNm,
                     isSelected = isSelected,
                     isHighlighted = isMatched,
-                    isDimmed = false,
+                    isDimmed = highlightFilters.isActive && !isMatched,
                     showSweep = showSweep,
                     sweepAngle = sweepAngle,
                     dataTagMode = dataTagMode,
@@ -720,7 +720,7 @@ private fun DrawScope.drawAircraftBlip(
     val x = cx + ac.eastNm * pxPerNm
     val y = cy - ac.northNm * pxPerNm
     val center = Offset(x, y)
-    val dimAlpha = if (isDimmed) 0.3f else 1f
+    val dimAlpha = if (isDimmed) 0.14f else 1f
 
     if (isHighlighted) {
         drawCircle(
@@ -732,8 +732,12 @@ private fun DrawScope.drawAircraftBlip(
     }
 
     // Phosphor Excitation Calculation: brighten when swept
-    var blipColor = palette.aircraftAltitudeColor(ac.altitudeFt, ac.altitudeKnown).copy(alpha = if (isDimmed) 0.24f else 1f)
-    if (showSweep) {
+    var blipColor = if (isDimmed) {
+        palette.textSecondary.copy(alpha = 0.14f)
+    } else {
+        palette.aircraftAltitudeColor(ac.altitudeFt, ac.altitudeKnown)
+    }
+    if (showSweep && !isDimmed) {
         val dx = x - cx
         val dy = y - cy
         var bearingDeg = Math.toDegrees(atan2(dx.toDouble(), -dy.toDouble())).toFloat()
@@ -921,7 +925,7 @@ private fun DrawScope.drawAircraftBlip(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.Bold,
-                    color = palette.amber
+                    color = palette.amber.copy(alpha = dimAlpha)
                 )
             )
         }

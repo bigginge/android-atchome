@@ -150,12 +150,28 @@ fun AtcScreen(viewModel: AtcViewModel, modifier: Modifier = Modifier) {
                             )
                         }
                     }
-                        InfoPanel(
-                            selectedAircraft = uiState.selectedAircraft,
-                            compact = true,
-                            speedUnit = uiState.settings.speedUnit,
-                            modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(18.dp))
-                        )
+                        if (uiState.isHighlightFilterSheetOpen) {
+                            Surface(
+                                modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(18.dp)),
+                                color = palette.infoBackground,
+                                contentColor = palette.textPrimary
+                            ) {
+                                AircraftHighlightFilterPanel(
+                                    filters = uiState.highlightFilters,
+                                    aircraft = uiState.aircraft,
+                                    onFiltersChange = viewModel::updateHighlightFilters,
+                                    onClear = viewModel::clearHighlightFilters,
+                                    onDismiss = viewModel::closeHighlightFilters
+                                )
+                            }
+                        } else {
+                            InfoPanel(
+                                selectedAircraft = uiState.selectedAircraft,
+                                compact = true,
+                                speedUnit = uiState.settings.speedUnit,
+                                modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(18.dp))
+                            )
+                        }
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
@@ -195,7 +211,10 @@ fun AtcScreen(viewModel: AtcViewModel, modifier: Modifier = Modifier) {
                                 if (uiState.highlightFilters.isActive) palette.highlight else palette.tagBorder
                             )
                         ) {
-                            IconButton(onClick = { viewModel.openHighlightFilters() }) {
+                            IconButton(onClick = {
+                                viewModel.openHighlightFilters()
+                                showPhoneDetails = true
+                            }) {
                                 Icon(
                                     Icons.Default.FilterAlt,
                                     contentDescription = "Traffic filters",
@@ -312,27 +331,31 @@ fun AtcScreen(viewModel: AtcViewModel, modifier: Modifier = Modifier) {
             }
         )
     }
-    if (showPhoneDetails && uiState.selectedAircraft != null) {
+    if (showPhoneDetails && (uiState.selectedAircraft != null || uiState.isHighlightFilterSheetOpen)) {
         ModalBottomSheet(
-            onDismissRequest = { showPhoneDetails = false },
+            onDismissRequest = {
+                showPhoneDetails = false
+                viewModel.closeHighlightFilters()
+            },
             containerColor = palette.infoBackground,
             contentColor = palette.textPrimary
         ) {
-            InfoPanel(
-                selectedAircraft = uiState.selectedAircraft,
-                speedUnit = uiState.settings.speedUnit,
-                modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp)
-            )
+            if (uiState.isHighlightFilterSheetOpen) {
+                AircraftHighlightFilterPanel(
+                    filters = uiState.highlightFilters,
+                    aircraft = uiState.aircraft,
+                    onFiltersChange = viewModel::updateHighlightFilters,
+                    onClear = viewModel::clearHighlightFilters,
+                    onDismiss = viewModel::closeHighlightFilters
+                )
+            } else {
+                InfoPanel(
+                    selectedAircraft = uiState.selectedAircraft,
+                    speedUnit = uiState.settings.speedUnit,
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp)
+                )
+            }
         }
-    }
-    if (uiState.isHighlightFilterSheetOpen) {
-        AircraftHighlightFilterSheet(
-            filters = uiState.highlightFilters,
-            aircraft = uiState.aircraft,
-            onFiltersChange = viewModel::updateHighlightFilters,
-            onClear = { viewModel.clearHighlightFilters() },
-            onDismiss = { viewModel.closeHighlightFilters() }
-        )
     }
 }
 

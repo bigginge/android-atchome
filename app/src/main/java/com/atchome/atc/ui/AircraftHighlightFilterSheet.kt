@@ -3,13 +3,14 @@ package com.atchome.atc.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -19,7 +20,6 @@ import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -30,7 +30,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,30 +37,23 @@ import com.atchome.atc.model.AircraftHighlightFilters
 import com.atchome.atc.model.Aircraft
 import com.atchome.atc.ui.theme.AtcColors
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun AircraftHighlightFilterSheet(
+fun AircraftHighlightFilterPanel(
     filters: AircraftHighlightFilters,
     aircraft: List<Aircraft>,
     onFiltersChange: (AircraftHighlightFilters) -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = AtcColors.radarBackground,
-        contentColor = AtcColors.textPrimary,
-        scrimColor = Color.Black.copy(alpha = 0.65f)
-    ) {
         Column(
-            modifier = Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+            modifier = Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text("HIGHLIGHT AIRCRAFT", fontWeight = FontWeight.Bold, color = AtcColors.highlight, letterSpacing = 1.sp)
             Text("Matching aircraft stand out; other traffic stays visible.", fontSize = 13.sp, color = AtcColors.textSecondary)
             FilterField("Type", "e.g. A320", filters.type, aircraft.typeSuggestions()) { onFiltersChange(filters.copy(type = it)) }
-            FilterField("Airline / callsign", "Callsign starts with… e.g. BAW", filters.airlineCallsign, aircraft.callsignSuggestions()) {
-                onFiltersChange(filters.copy(airlineCallsign = it))
+            FilterField("Airline", "e.g. British Airways", filters.airline, aircraft.airlineSuggestions()) {
+                onFiltersChange(filters.copy(airline = it))
             }
             FilterField("Registration", "e.g. G-ABCD or N123AB", filters.registration, aircraft.registrationSuggestions()) {
                 onFiltersChange(filters.copy(registration = it))
@@ -77,13 +69,12 @@ fun AircraftHighlightFilterSheet(
                 }
             }
         }
-    }
 }
 
 private data class FilterSuggestion(val value: String, val label: String)
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 private fun FilterField(
     label: String,
     placeholder: String,
@@ -124,11 +115,11 @@ private fun FilterField(
         )
         if (visibleSuggestions.isNotEmpty()) {
             Text("IN RANGE", modifier = Modifier.padding(start = 2.dp, top = 5.dp), fontSize = 9.sp, color = AtcColors.textSecondary, letterSpacing = 0.6.sp)
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth()
-                    .bringIntoViewRequester(suggestionsRequester)
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    .bringIntoViewRequester(suggestionsRequester),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 visibleSuggestions.forEach { suggestion ->
                     SuggestionChip(
@@ -154,8 +145,8 @@ private fun List<Aircraft>.typeSuggestions(): List<FilterSuggestion> = mapNotNul
     if (value.isEmpty()) null else FilterSuggestion(value, if (code.isNotEmpty() && description.isNotEmpty()) "$code · $description" else value)
 }.distinctBy { it.value.lowercase() }.sortedBy { it.label.lowercase() }
 
-private fun List<Aircraft>.callsignSuggestions(): List<FilterSuggestion> = mapNotNull { aircraft ->
-    aircraft.callsign.trim().takeIf(String::isNotEmpty)?.let { FilterSuggestion(it, it) }
+private fun List<Aircraft>.airlineSuggestions(): List<FilterSuggestion> = mapNotNull { aircraft ->
+    aircraft.registeredOwner.trim().takeIf(String::isNotEmpty)?.let { FilterSuggestion(it, it) }
 }.distinctBy { it.value.lowercase() }.sortedBy { it.label.lowercase() }
 
 private fun List<Aircraft>.registrationSuggestions(): List<FilterSuggestion> = mapNotNull { aircraft ->

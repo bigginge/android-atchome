@@ -62,6 +62,7 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
     private var pollJob: Job? = null
     private var tickerJob: Job? = null
     private var enrichmentJob: Job? = null
+    private var routeSuggestionJob: Job? = null
     private var airportJob: Job? = null
     private var registrationSearchJob: Job? = null
     private var lastEnrichedHex: String = ""
@@ -82,6 +83,7 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openHighlightFilters() {
         _uiState.value = _uiState.value.copy(isHighlightFilterSheetOpen = true)
+        loadRouteSuggestions()
     }
 
     fun closeHighlightFilters() {
@@ -94,6 +96,44 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearHighlightFilters() {
         updateHighlightFilters(AircraftHighlightFilters())
+    }
+
+    private fun loadRouteSuggestions() {
+        if (routeSuggestionJob?.isActive == true) return
+        routeSuggestionJob = viewModelScope.launch {
+            val targets = tracker.getAircraft()
+                .filter {
+                    it.callsign.isNotBlank() &&
+                        it.routeLookupStep == 0 &&
+                        !it.routeLoaded &&
+                        !it.hex.equals(lastEnrichedHex, ignoreCase = true)
+                }
+                .sortedBy { it.distanceNm }
+                .distinctBy { it.callsign.uppercase() }
+                .take(8)
+
+            for (target in targets) {
+                val routeResult = withContext(Dispatchers.IO) {
+                    hexdbClient.fetchRoute(target.callsign)
+                }
+                routeResult.onSuccess { route ->
+                    val current = tracker.getAircraft().firstOrNull {
+                        it.hex.equals(target.hex, ignoreCase = true)
+                    } ?: return@onSuccess
+                    if (current.routeLookupStep == 0 && !current.routeLoaded &&
+                        !current.hex.equals(lastEnrichedHex, ignoreCase = true)
+                    ) {
+                        current.originIcao = route.originIcao
+                        current.destinationIcao = route.destinationIcao
+                        current.origin = route.originIcao
+                        current.destination = route.destinationIcao
+                        current.routeLookupStep = 1
+                        updateUiStateFromTracker()
+                    }
+                }
+                delay(600L)
+            }
+        }
     }
 
     fun searchAircraftByRegistration(registration: String) {
@@ -475,6 +515,7 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
         pollJob?.cancel()
         tickerJob?.cancel()
         enrichmentJob?.cancel()
+        routeSuggestionJob?.cancel()
         airportJob?.cancel()
     }
 }
