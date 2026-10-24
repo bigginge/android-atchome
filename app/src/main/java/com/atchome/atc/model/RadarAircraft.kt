@@ -22,25 +22,49 @@ data class RadarAircraft(
     val destinationIcao: String,
     val trail: List<TrailPoint>,
     val seen: Boolean,
-    val positionAgeSeconds: Int?
+    val positionAgeSeconds: Int?,
+    val positionTimestampNanos: Long = System.nanoTime(),
+    val eastNmPerSecond: Float = (
+        kotlin.math.sin(Math.toRadians(trackDeg.toDouble())) * groundSpeedKts / 3600.0
+    ).toFloat(),
+    val northNmPerSecond: Float = (
+        kotlin.math.cos(Math.toRadians(trackDeg.toDouble())) * groundSpeedKts / 3600.0
+    ).toFloat(),
+    val headingEast: Float = kotlin.math.sin(Math.toRadians(trackDeg.toDouble())).toFloat(),
+    val headingNorth: Float = kotlin.math.cos(Math.toRadians(trackDeg.toDouble())).toFloat()
 ) {
-    val formattedAltitude: String
-        get() = when {
+    val aircraftClass: AircraftClass = classifyAircraft(
+        typeCode, typeDescription, manufacturer, registeredOwner, callsign
+    )
+    private val cachedFormattedAltitude: String = when {
             !altitudeKnown -> "ALT ?"
             altitudeFt <= 0 -> "GND"
             altitudeFt >= 18000 -> "FL${(altitudeFt + 50) / 100}"
             else -> String.format(java.util.Locale.US, "%03d", (altitudeFt + 50) / 100)
         }
 
-    val trendSymbol: String
-        get() = when {
+    private val cachedTrendSymbol: String = when {
             vertRateFpm > 250 -> "▲"
             vertRateFpm < -250 -> "▼"
             else -> "─"
         }
+    private val cachedSpeedKts = String.format(java.util.Locale.US, "%.0fKTS", groundSpeedKts)
+    private val cachedSpeedMph = String.format(java.util.Locale.US, "%.0fMPH", groundSpeedKts * 1.150779f)
+    private val cachedSpeedKph = String.format(java.util.Locale.US, "%.0fKPH", groundSpeedKts * 1.852f)
+
+    val formattedAltitude: String get() = cachedFormattedAltitude
+    val trendSymbol: String get() = cachedTrendSymbol
+    fun formattedSpeedCompact(unit: String): String = when (unit) {
+        "MPH" -> cachedSpeedMph
+        "KPH" -> cachedSpeedKph
+        else -> cachedSpeedKts
+    }
 }
 
-fun Aircraft.toRadarAircraft(): RadarAircraft = RadarAircraft(
+fun Aircraft.toRadarAircraft(
+    trailSnapshot: List<TrailPoint> = trail.toList(),
+    positionTimestampNanos: Long = System.nanoTime()
+): RadarAircraft = RadarAircraft(
     hex = hex,
     callsign = callsign,
     registration = registration,
@@ -59,7 +83,8 @@ fun Aircraft.toRadarAircraft(): RadarAircraft = RadarAircraft(
     destination = destination,
     originIcao = originIcao,
     destinationIcao = destinationIcao,
-    trail = trail.toList(),
+    trail = trailSnapshot,
     seen = seen,
-    positionAgeSeconds = positionAgeSeconds
+    positionAgeSeconds = positionAgeSeconds,
+    positionTimestampNanos = positionTimestampNanos
 )

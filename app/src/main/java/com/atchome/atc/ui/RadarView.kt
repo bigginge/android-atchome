@@ -18,6 +18,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -28,11 +30,13 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -42,6 +46,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.withFrameNanos
 import com.atchome.atc.model.Aircraft
 import com.atchome.atc.model.AircraftHighlightFilters
 import com.atchome.atc.model.Airport
@@ -69,6 +75,36 @@ import kotlin.math.sin
 
 private val AIRPORT_SUFFIX = Regex("\\s+(?:international\\s+)?airport$", RegexOption.IGNORE_CASE)
 
+private class RectCollisionGrid(private val cellSizePx: Float) {
+    private val cells = HashMap<Long, MutableList<Rect>>()
+
+    fun add(rect: Rect) {
+        forEachCell(rect) { key -> cells.getOrPut(key) { ArrayList(2) }.add(rect) }
+    }
+
+    fun addAll(rects: List<Rect>) = rects.forEach(::add)
+
+    fun hasOverlap(rect: Rect): Boolean = overlapCount(rect) > 0
+
+    fun overlapCount(rect: Rect): Int {
+        var count = 0
+        forEachCell(rect) { key ->
+            cells[key]?.forEach { occupied -> if (occupied.overlaps(rect)) count++ }
+        }
+        return count
+    }
+
+    private inline fun forEachCell(rect: Rect, block: (Long) -> Unit) {
+        val left = kotlin.math.floor(rect.left / cellSizePx).toInt()
+        val right = kotlin.math.floor(rect.right / cellSizePx).toInt()
+        val top = kotlin.math.floor(rect.top / cellSizePx).toInt()
+        val bottom = kotlin.math.floor(rect.bottom / cellSizePx).toInt()
+        for (x in left..right) for (y in top..bottom) {
+            block((x.toLong() shl 32) xor (y.toLong() and 0xffffffffL))
+        }
+    }
+}
+
 @Composable
 fun RadarView(
     radarAircraft: StateFlow<List<RadarAircraft>>,
@@ -91,33 +127,62 @@ fun RadarView(
 ) {
     val aircraftList by radarAircraft.collectAsState()
     val selectedRadarAircraft = aircraftList.firstOrNull { it.hex == selectedAircraft?.hex }
+    val selectedHex = selectedAircraft?.hex
     val palette = AtcColors
     val orderedAirports = remember(airports) {
         airports.sortedBy { when (it.type) { "large" -> 0; "medium" -> 1; else -> 2 } }
     }
     val textMeasurer = rememberTextMeasurer()
+    val matchingAircraft = remember(aircraftList, highlightFilters) {
+        if (highlightFilters.isActive) aircraftList.filter(highlightFilters::matches) else emptyList()
+    }
+    val matchingHexes = remember(matchingAircraft) { matchingAircraft.mapTo(HashSet()) { it.hex } }
+    val baseAircraft = remember(aircraftList, selectedHex, matchingHexes) {
+        aircraftList.filter { it.hex != selectedHex && it.hex !in matchingHexes }
+    }
+    val denseTagHexes = remember(aircraftList, selectedHex, matchingHexes, dataTagMode) {
+        if (aircraftList.size <= 30) {
+            null
+        } else {
+            val selectedOnly = dataTagMode == "SELECTED"
+            val prioritized = LinkedHashSet<String>(20)
+            selectedRadarAircraft?.let { prioritized += it.hex }
+            if (!selectedOnly) {
+                matchingAircraft
+                    .sortedBy { it.eastNm * it.eastNm + it.northNm * it.northNm }
+                    .forEach { if (prioritized.size < 20) prioritized += it.hex }
+                if (prioritized.size < 20) {
+                    aircraftList
+                        .asSequence()
+                        .filter { it.hex !in prioritized }
+                        .sortedBy { it.eastNm * it.eastNm + it.northNm * it.northNm }
+                        .take(20 - prioritized.size)
+                        .forEach { prioritized += it.hex }
+                }
+            }
+            prioritized
+        }
+    }
 
-    val sweepAngle = if (showSweep && !reduceMotion) {
-        val transition = rememberInfiniteTransition(label = "RadarSweepTransition")
-        val angle by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(animation = tween(durationMillis = 6000, easing = LinearEasing), repeatMode = RepeatMode.Restart),
-            label = "RadarSweepAngle"
-        )
-        angle
-    } else 0f
+    var sweepAngleForTargets by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(showSweep, reduceMotion) {
+        if (!showSweep || reduceMotion) {
+            sweepAngleForTargets = 0f
+        } else {
+            val startNanos = System.nanoTime()
+            while (isActive) {
+                sweepAngleForTargets = ((System.nanoTime() - startNanos) % 6_000_000_000L) / 6_000_000_000f * 360f
+                delay(100L)
+            }
+        }
+    }
 
-    val reticlePulse = if (!reduceMotion && selectedAircraft != null) {
-        val transition = rememberInfiniteTransition(label = "SelectionReticleTransition")
-        val pulse by transition.animateFloat(
-            initialValue = 0.97f,
-            targetValue = 1.03f,
-            animationSpec = infiniteRepeatable(animation = tween(durationMillis = 1600, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
-            label = "ReticlePulse"
-        )
-        pulse
-    } else 1f
+    // Read by the draw lambda only, so the traffic scope can animate at display
+    // cadence without recomposing the whole screen or rebuilding its snapshots.
+    var frameTimeNanos by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        while (isActive) withFrameNanos { frameTimeNanos = it }
+    }
 
     // Real-time UTC Zulu clock
     var utcClockText by remember { mutableStateOf("") }
@@ -132,6 +197,44 @@ fun RadarView(
     }
 
     BoxWithConstraints(modifier = modifier) {
+        val density = LocalDensity.current
+        val canvasWidth = with(density) { maxWidth.toPx() }
+        val canvasHeight = with(density) { maxHeight.toPx() }
+        val canvasCx = canvasWidth / 2f
+        val canvasCy = canvasHeight / 2f
+        val canvasPxPerNm = (canvasCx - 24f) / rangeNm.coerceAtLeast(1f)
+        val symbolClearance = with(density) { 10.dp.toPx() }
+        val collisionCellSize = with(density) { 64.dp.toPx() }
+        val trafficSymbols = remember(aircraftList, canvasWidth, canvasHeight, rangeNm) {
+            aircraftList.map { aircraft ->
+                val symbolX = canvasCx + aircraft.eastNm * canvasPxPerNm
+                val symbolY = canvasCy - aircraft.northNm * canvasPxPerNm
+                Rect(
+                    symbolX - symbolClearance,
+                    symbolY - symbolClearance,
+                    symbolX + symbolClearance,
+                    symbolY + symbolClearance
+                )
+            }
+        }
+        val trafficCollisionGrid = remember(trafficSymbols, collisionCellSize) {
+            RectCollisionGrid(collisionCellSize).also { it.addAll(trafficSymbols) }
+        }
+
+        RadarStaticLayer(
+            rangeNm = rangeNm,
+            showRangeRings = showRangeRings,
+            textMeasurer = textMeasurer,
+            palette = palette,
+            modifier = Modifier.fillMaxSize()
+        )
+        RadarSweepLayer(
+            showSweep = showSweep,
+            reduceMotion = reduceMotion,
+            palette = palette,
+            modifier = Modifier.fillMaxSize()
+        )
+
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -202,73 +305,20 @@ fun RadarView(
                     }
                 }
         ) {
+            val drawFrameTimeNanos = frameTimeNanos
             val sizePx = min(size.width, size.height)
             val cx = size.width / 2f
             val cy = size.height / 2f
             val radiusPx = cx - 24f
-            val viewportRadiusPx = sqrt(
-                maxOf(cx, size.width - cx) * maxOf(cx, size.width - cx) +
-                    maxOf(cy, size.height - cy) * maxOf(cy, size.height - cy)
-            )
             val pxPerNm = radiusPx / rangeNm.coerceAtLeast(1f)
 
-            // 1. Radar Tube Background & Radial Vignette
-            drawRect(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        palette.cardBackground,
-                        palette.radarBackground,
-                        palette.infoBackground
-                    ),
-                    center = Offset(cx, cy),
-                    radius = viewportRadiusPx
-                )
-            )
-
-            // 2. Tactical Compass Rose & Grid Lines
-            drawRadarGrid(
-                cx = cx,
-                cy = cy,
-                radiusPx = radiusPx,
-                viewportRadiusPx = viewportRadiusPx,
-                rangeNm = rangeNm,
-                pxPerNm = pxPerNm,
-                showRangeRings = showRangeRings,
-                textMeasurer = textMeasurer,
-                palette = palette
-            )
-
-            // 3. Rotating Radar Sweep Beam with Phosphor Decay
-            if (showSweep) {
-                drawRadarSweep(
-                    cx = cx,
-                    cy = cy,
-                    radiusPx = viewportRadiusPx,
-                    sweepAngle = sweepAngle,
-                    palette = palette
-                )
-            }
-
-            // 4. Historical Breadcrumb Trails
+            // Historical Breadcrumb Trails
             if (showTrails) {
-                aircraftList.forEach { ac ->
-                    drawAircraftBreadcrumbs(ac, cx, cy, pxPerNm, ac.hex == selectedAircraft?.hex, palette)
-                }
+                drawAircraftBreadcrumbs(aircraftList, cx, cy, pxPerNm, selectedHex, palette)
             }
 
-            // 5. Airport ATC tower markers (under aircraft so traffic stays on top)
-            val occupiedLabels = mutableListOf<Rect>()
-            val symbolClearance = 10.dp.toPx()
-            val trafficSymbols = aircraftList.map { aircraft ->
-                val symbolX = cx + aircraft.eastNm * pxPerNm
-                val symbolY = cy - aircraft.northNm * pxPerNm
-                Rect(
-                    symbolX - symbolClearance,
-                    symbolY - symbolClearance,
-                    symbolX + symbolClearance,
-                    symbolY + symbolClearance
-                )
-            }
+            // Airport markers are drawn beneath aircraft so traffic stays on top.
+            val occupiedLabels = RectCollisionGrid(collisionCellSize)
             if (showAirports) {
                 orderedAirports.forEach { airport ->
                     drawAirportTower(
@@ -280,47 +330,49 @@ fun RadarView(
                         palette = palette,
                         rangeNm = rangeNm,
                         occupiedLabels = occupiedLabels,
-                        trafficSymbols = trafficSymbols
+                        trafficSymbols = trafficCollisionGrid
                     )
                 }
             }
-            // Keep airport identifiers visible, then use the traffic-symbol bounds
-            // to keep aircraft data tags from covering other targets.
-            occupiedLabels += trafficSymbols
-
-            val matchingAircraft = if (highlightFilters.isActive) {
-                aircraftList.filter(highlightFilters::matches)
-            } else {
-                emptyList()
-            }
-            val matchingHexes = matchingAircraft.mapTo(HashSet()) { it.hex }
 
             fun drawTarget(ac: RadarAircraft, isSelected: Boolean, isMatched: Boolean) {
+                val secondsSinceSnapshot = ((drawFrameTimeNanos - ac.positionTimestampNanos).coerceAtLeast(0L) / 1_000_000_000f)
+                    .coerceIn(0f, 0.12f)
+                val pulse = if (isSelected && !reduceMotion) {
+                    1f + 0.03f * kotlin.math.sin(drawFrameTimeNanos / 1_000_000_000.0 * (2.0 * PI / 1.6)).toFloat()
+                } else 1f
+                val drawDataTag = isSelected || when {
+                    dataTagMode == "SELECTED" -> false
+                    denseTagHexes != null -> ac.hex in denseTagHexes
+                    else -> true
+                }
                 drawAircraftBlip(
                     ac = ac,
+                    positionAgeSeconds = secondsSinceSnapshot,
                     cx = cx,
                     cy = cy,
                     pxPerNm = pxPerNm,
                     isSelected = isSelected,
                     isHighlighted = isMatched,
                     isDimmed = highlightFilters.isActive && !isMatched,
+                    simplifiedSymbol = aircraftList.size > 30 && !isSelected,
                     showSweep = showSweep,
-                    sweepAngle = sweepAngle,
+                    sweepAngle = sweepAngleForTargets,
                     dataTagMode = dataTagMode,
+                    drawDataTag = drawDataTag,
                     speedUnit = speedUnit,
-                    reticlePulse = if (isSelected) reticlePulse else 1f,
+                    reticlePulse = pulse,
                     textMeasurer = textMeasurer,
                     palette = palette,
                     occupiedLabels = occupiedLabels,
+                    trafficSymbols = trafficCollisionGrid,
                     scopeSize = sizePx
                 )
             }
 
             // Base traffic is painted first, then a selected non-match, then all
             // matches (including a selected match) so filters always remain on top.
-            aircraftList
-                .filter { it.hex != selectedAircraft?.hex && it.hex !in matchingHexes }
-                .forEach { drawTarget(it, isSelected = false, isMatched = false) }
+            baseAircraft.forEach { drawTarget(it, isSelected = false, isMatched = false) }
 
             selectedRadarAircraft?.takeIf { it.hex !in matchingHexes }?.let {
                 drawTarget(it, isSelected = true, isMatched = false)
@@ -338,12 +390,83 @@ fun RadarView(
             drawRadarHud(
                 sizePx = sizePx,
                 targetCount = aircraftList.size,
-                matchedCount = if (highlightFilters.isActive) aircraftList.count(highlightFilters::matches) else aircraftList.size,
+                matchedCount = if (highlightFilters.isActive) matchingAircraft.size else aircraftList.size,
                 highlightFilters = highlightFilters,
                 utcClock = utcClockText,
                 textMeasurer = textMeasurer,
                 palette = palette
             )
+        }
+    }
+}
+
+@Composable
+private fun RadarStaticLayer(
+    rangeNm: Float,
+    showRangeRings: Boolean,
+    textMeasurer: TextMeasurer,
+    palette: AtcPalette,
+    modifier: Modifier
+) {
+    Canvas(modifier = modifier) {
+        val cx = size.width / 2f
+        val cy = size.height / 2f
+        val radiusPx = cx - 24f
+        val viewportRadiusPx = sqrt(
+            maxOf(cx, size.width - cx) * maxOf(cx, size.width - cx) +
+                maxOf(cy, size.height - cy) * maxOf(cy, size.height - cy)
+        )
+        val pxPerNm = radiusPx / rangeNm.coerceAtLeast(1f)
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(palette.cardBackground, palette.radarBackground, palette.infoBackground),
+                center = Offset(cx, cy),
+                radius = viewportRadiusPx
+            )
+        )
+        drawRadarGrid(
+            cx = cx,
+            cy = cy,
+            radiusPx = radiusPx,
+            viewportRadiusPx = viewportRadiusPx,
+            rangeNm = rangeNm,
+            pxPerNm = pxPerNm,
+            showRangeRings = showRangeRings,
+            textMeasurer = textMeasurer,
+            palette = palette
+        )
+    }
+}
+
+@Composable
+private fun RadarSweepLayer(
+    showSweep: Boolean,
+    reduceMotion: Boolean,
+    palette: AtcPalette,
+    modifier: Modifier
+) {
+    val sweepAngle = if (showSweep && !reduceMotion) {
+        val transition = rememberInfiniteTransition(label = "RadarSweepTransition")
+        val angle by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 6000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "RadarSweepAngle"
+        )
+        angle
+    } else 0f
+    if (showSweep) {
+        Canvas(modifier = modifier) {
+            val cx = size.width / 2f
+            val cy = size.height / 2f
+            val radiusPx = sqrt(
+                maxOf(cx, size.width - cx) * maxOf(cx, size.width - cx) +
+                    maxOf(cy, size.height - cy) * maxOf(cy, size.height - cy)
+            )
+            drawRadarSweep(cx, cy, radiusPx, sweepAngle, palette)
         }
     }
 }
@@ -578,32 +701,68 @@ private fun DrawScope.drawRadarSweep(
  * Fading phosphor breadcrumbs representing historical flight trajectory.
  */
 private fun DrawScope.drawAircraftBreadcrumbs(
-    ac: RadarAircraft,
+    aircraft: List<RadarAircraft>,
     cx: Float,
     cy: Float,
     pxPerNm: Float,
-    isSelected: Boolean,
+    selectedHex: String?,
     palette: AtcPalette
 ) {
-    val count = ac.trail.size
-    if (count < 2) return
+    // Batch trail dots by altitude band, age, and selection so hundreds of
+    // points become a few dozen canvas calls instead of one call per point.
+    val batches = Array(36) { ArrayList<Offset>(aircraft.size) }
+    aircraft.forEach { ac ->
+        val trail = ac.trail
+        val count = trail.size
+        if (count < 2) return@forEach
+        val selected = ac.hex == selectedHex
+        val colorBand = when {
+            !ac.altitudeKnown -> 1
+            ac.altitudeFt <= 0 -> 0
+            ac.altitudeFt < 10000 -> 2
+            ac.altitudeFt < 20000 -> 3
+            ac.altitudeFt < 30000 -> 4
+            else -> 5
+        }
+        for (i in 0 until count) {
+            val point = trail[i]
+            val x = cx + point.eastNm * pxPerNm
+            val y = cy - point.northNm * pxPerNm
+            if (x < 0f || x > size.width || y < 0f || y > size.height) continue
+            val ageBand = (i * 3 / count).coerceIn(0, 2)
+            val key = (colorBand * 3 + ageBand) * 2 + if (selected) 1 else 0
+            batches[key].add(Offset(x, y))
+        }
+    }
 
-    val baseColor = palette.aircraftAltitudeColor(ac.altitudeFt, ac.altitudeKnown)
-
-    for (i in 0 until count) {
-        val p = ac.trail[i]
-        val px = cx + p.eastNm * pxPerNm
-        val py = cy - p.northNm * pxPerNm
-
-        val ageFactor = (i + 1).toFloat() / count.toFloat()
-        val alpha = (ageFactor * ageFactor).coerceIn(0.12f, 0.9f)
-        val dotRadius = if (isSelected) (1.2f + ageFactor * 2.2f).dp.toPx() else (0.8f + ageFactor * 1.8f).dp.toPx()
-
-        drawCircle(
-            color = baseColor.copy(alpha = alpha),
-            radius = dotRadius,
-            center = Offset(px, py)
-        )
+    val colors = arrayOf(
+        palette.groundTraffic,
+        palette.unknownTraffic,
+        palette.lowAltitude,
+        palette.midAltitude,
+        palette.highAltitude,
+        palette.cruiseAltitude
+    )
+    val alphaByAge = floatArrayOf(0.16f, 0.46f, 0.88f)
+    for (colorBand in 0..5) {
+        for (ageBand in 0..2) {
+            for (selected in 0..1) {
+                val points = batches[(colorBand * 3 + ageBand) * 2 + selected]
+                if (points.isEmpty()) continue
+                val radiusDp = if (selected == 1) {
+                    2.4f + ageBand * 0.65f
+                } else {
+                    1.6f + ageBand * 0.55f
+                }
+                drawPoints(
+                    points = points,
+                    pointMode = PointMode.Points,
+                    color = colors[colorBand].copy(alpha = alphaByAge[ageBand]),
+                    strokeWidth = radiusDp.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+        }
     }
 }
 
@@ -616,8 +775,8 @@ private fun DrawScope.drawAirportTower(
     textMeasurer: TextMeasurer,
     palette: AtcPalette,
     rangeNm: Float,
-    occupiedLabels: MutableList<Rect>,
-    trafficSymbols: List<Rect>
+    occupiedLabels: RectCollisionGrid,
+    trafficSymbols: RectCollisionGrid
 ) {
     val x = cx + airport.eastNm * pxPerNm
     val y = cy - airport.northNm * pxPerNm
@@ -688,10 +847,10 @@ private fun DrawScope.drawAirportTower(
     // Prefer a free spot; if every side is busy, place the label where it covers
     // the fewest aircraft symbols instead of hiding the airport altogether.
     val placement = candidates.minByOrNull { (_, rect) ->
-        occupiedLabels.count { it.overlaps(rect) } * 1000 + trafficSymbols.count { it.overlaps(rect) }
+        occupiedLabels.overlapCount(rect) * 1000 + trafficSymbols.overlapCount(rect)
     } ?: return
     val (textTopLeft, rect) = placement
-    occupiedLabels += rect
+    occupiedLabels.add(rect)
     drawRoundRect(palette.tagBackground.copy(alpha = palette.tagBackground.alpha * 0.82f), rect.topLeft, Size(rect.width, rect.height), CornerRadius(3.dp.toPx(), 3.dp.toPx()))
     drawText(layout, topLeft = textTopLeft)
 }
@@ -701,24 +860,28 @@ private fun DrawScope.drawAirportTower(
  */
 private fun DrawScope.drawAircraftBlip(
     ac: RadarAircraft,
+    positionAgeSeconds: Float,
     cx: Float,
     cy: Float,
     pxPerNm: Float,
     isSelected: Boolean,
     isHighlighted: Boolean = false,
     isDimmed: Boolean = false,
+    simplifiedSymbol: Boolean,
     showSweep: Boolean,
     sweepAngle: Float,
     dataTagMode: String,
+    drawDataTag: Boolean,
     speedUnit: String,
     reticlePulse: Float = 1.0f,
     textMeasurer: TextMeasurer,
     palette: AtcPalette,
-    occupiedLabels: MutableList<Rect>,
+    occupiedLabels: RectCollisionGrid,
+    trafficSymbols: RectCollisionGrid,
     scopeSize: Float
 ) {
-    val x = cx + ac.eastNm * pxPerNm
-    val y = cy - ac.northNm * pxPerNm
+    val x = cx + (ac.eastNm + ac.eastNmPerSecond * positionAgeSeconds) * pxPerNm
+    val y = cy - (ac.northNm + ac.northNmPerSecond * positionAgeSeconds) * pxPerNm
     val center = Offset(x, y)
     val dimAlpha = if (isDimmed) 0.14f else 1f
 
@@ -779,12 +942,14 @@ private fun DrawScope.drawAircraftBlip(
         drawLine(reticleColor, Offset(x + bracketSize, y + bracketSize), Offset(x + bracketSize, y + bracketSize - armLen), 1.8.dp.toPx())
     }
 
-    // 2. Heading-aware class symbols use shape as well as altitude color.
     val aircraftClass = ac.aircraftClass()
+    val symbolColor = if (!ac.seen) palette.amber else if (aircraftClass == AircraftClass.UNKNOWN) palette.textSecondary.copy(alpha = dimAlpha) else blipColor
+    // Dense traffic keeps class-specific silhouettes, scaled down to reduce overlap.
+    val symbolScale = if (simplifiedSymbol && !isSelected) 0.68f else 1f
     val len = if (isSelected) 18.dp.toPx() else 14.dp.toPx()
     val half = if (isSelected) 13.dp.toPx() else 10.dp.toPx()
-    val symbolColor = if (!ac.seen) palette.amber else if (aircraftClass == AircraftClass.UNKNOWN) palette.textSecondary.copy(alpha = dimAlpha) else blipColor
-    rotate(degrees = ac.trackDeg, pivot = center) {
+    scale(symbolScale, pivot = center) {
+        rotate(degrees = ac.trackDeg, pivot = center) {
         when (aircraftClass) {
             AircraftClass.HELICOPTER -> {
                 // Top-down rotor, cabin, tail boom, and tail rotor.
@@ -880,9 +1045,26 @@ private fun DrawScope.drawAircraftBlip(
                 drawPath(tailplane, symbolColor)
             }
             AircraftClass.UNKNOWN -> {
-                drawCircle(symbolColor, if (isSelected) 4.dp.toPx() else 3.dp.toPx(), center, style = Stroke(width = 1.7.dp.toPx()))
-                drawLine(symbolColor, Offset(x, y), Offset(x, y - len), 1.3.dp.toPx(), cap = StrokeCap.Round)
+                // Generic fixed-wing silhouette for aircraft without a known class.
+                val plane = Path().apply {
+                    moveTo(x, y - len)
+                    lineTo(x + 1.5.dp.toPx(), y - len * 0.55f)
+                    lineTo(x + half, y - len * 0.05f)
+                    lineTo(x + half, y + len * 0.1f)
+                    lineTo(x + 2.dp.toPx(), y + len * 0.02f)
+                    lineTo(x + 3.dp.toPx(), y + len * 0.68f)
+                    lineTo(x + 4.dp.toPx(), y + len * 0.82f)
+                    lineTo(x - 4.dp.toPx(), y + len * 0.82f)
+                    lineTo(x - 3.dp.toPx(), y + len * 0.68f)
+                    lineTo(x - 2.dp.toPx(), y + len * 0.02f)
+                    lineTo(x - half, y + len * 0.1f)
+                    lineTo(x - half, y - len * 0.05f)
+                    lineTo(x - 1.5.dp.toPx(), y - len * 0.55f)
+                    close()
+                }
+                drawPath(plane, symbolColor)
             }
+        }
         }
     }
     if (!ac.altitudeKnown) {
@@ -890,12 +1072,9 @@ private fun DrawScope.drawAircraftBlip(
     }
 
     // 3. ATC Data Blocks & Leader Lines (3-Way Mode)
-    val shouldDrawFullTag = isSelected || dataTagMode == "FULL"
-    val shouldDrawCompactTag = !isSelected && dataTagMode == "COMPACT"
-
-    if (shouldDrawFullTag) {
+    if (drawDataTag && (isSelected || dataTagMode == "FULL")) {
         val callsign = ac.callsign.ifEmpty { ac.registration.ifEmpty { ac.hex.uppercase() } }
-        val speedStr = formatSpeedFromKnots(ac.groundSpeedKts, speedUnit).replace(" ", "")
+        val speedStr = ac.formattedSpeedCompact(speedUnit)
         val line1 = callsign.take(14)
         val line2 = "${aircraftClass.shortLabel} • ${ac.formattedAltitude} ${ac.trendSymbol} $speedStr"
         val line3 = if (!ac.seen) "LAST SEEN · ${com.atchome.atc.model.formatPositionAge(ac.positionAgeSeconds)}" else null
@@ -940,10 +1119,11 @@ private fun DrawScope.drawAircraftBlip(
             dimAlpha = dimAlpha,
             palette = palette,
             occupiedLabels = occupiedLabels,
+            trafficSymbols = trafficSymbols,
             scopeSize = scopeSize
         )
 
-    } else if (shouldDrawCompactTag) {
+    } else if (drawDataTag && dataTagMode == "COMPACT") {
         val callsign = ac.callsign.ifEmpty { ac.registration.ifEmpty { ac.hex.uppercase() } }
         val label = "$callsign · ${aircraftClass.shortLabel} · ${ac.formattedAltitude}"
         val textLayout = textMeasurer.measure(
@@ -966,6 +1146,7 @@ private fun DrawScope.drawAircraftBlip(
             dimAlpha = dimAlpha,
             palette = palette,
             occupiedLabels = occupiedLabels,
+            trafficSymbols = trafficSymbols,
             scopeSize = scopeSize
         )
     }
@@ -979,7 +1160,8 @@ private fun DrawScope.drawAircraftTag(
     isSelected: Boolean,
     dimAlpha: Float,
     palette: AtcPalette,
-    occupiedLabels: MutableList<Rect>,
+    occupiedLabels: RectCollisionGrid,
+    trafficSymbols: RectCollisionGrid,
     scopeSize: Float
 ) {
     val gap = 12.dp.toPx()
@@ -992,10 +1174,12 @@ private fun DrawScope.drawAircraftTag(
         Rect(center.x - width / 2f, center.y - height - gap, center.x + width / 2f, center.y - gap)
     )
     fun inBounds(rect: Rect) = rect.left >= margin && rect.top >= margin && rect.right <= scopeSize - margin && rect.bottom <= scopeSize - margin
-    val preferred = candidates.firstOrNull { inBounds(it) && occupiedLabels.none(it::overlaps) }
+    val preferred = candidates.firstOrNull {
+        inBounds(it) && !occupiedLabels.hasOverlap(it) && !trafficSymbols.hasOverlap(it)
+    }
     val fallback = if (isSelected) candidates.firstOrNull(::inBounds) else null
     val bounds = preferred ?: fallback ?: return
-    occupiedLabels += bounds
+    occupiedLabels.add(bounds)
 
     val border = if (isSelected) palette.highlight else palette.tagBorder
     drawLine(border.copy(alpha = dimAlpha * 0.8f), center, Offset(bounds.center.x, bounds.center.y), if (isSelected) 1.2.dp.toPx() else 0.8.dp.toPx())

@@ -1,6 +1,9 @@
 package com.atchome.atc.viewmodel
 
 import android.app.Application
+import android.content.pm.ApplicationInfo
+import android.os.SystemClock
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.atchome.atc.api.AdsbApiClient
@@ -45,6 +48,9 @@ data class AtcUiState(
 )
 
 class AtcViewModel(application: Application) : AndroidViewModel(application) {
+    private val startupStartedAtMs = SystemClock.elapsedRealtime()
+    private val isDebugBuild = (application.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    private var firstTrafficResultLogged = false
     private val settingsManager = SettingsManager(application)
     private val airportRepository = AirportRepository(application)
     private val adsbClient = AdsbApiClient()
@@ -304,6 +310,7 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun fetchSnapshot() {
+        val requestStartedAtMs = SystemClock.elapsedRealtime()
         val currentSettings = _uiState.value.settings
         _uiState.value = _uiState.value.copy(isScanning = true)
 
@@ -318,6 +325,14 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
 
         withContext(Dispatchers.Main) {
             result.onSuccess { list ->
+                if (isDebugBuild && !firstTrafficResultLogged) {
+                    firstTrafficResultLogged = true
+                    Log.i(
+                        "AtcStartup",
+                        "First traffic result after ${SystemClock.elapsedRealtime() - startupStartedAtMs}ms " +
+                            "(request ${SystemClock.elapsedRealtime() - requestStartedAtMs}ms, ${list.size} aircraft)"
+                    )
+                }
                 tracker.mergeSnapshot(list)
                 val count = tracker.getAircraft().size
                 val status = if (count == 0) {
@@ -480,7 +495,7 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
             while (isActive) {
                 delay(50) // 20 FPS radar-only position updates; detail UI updates at 2 Hz
                 val now = System.currentTimeMillis()
-                val dt = (now - lastTime) / 1000f
+                val dt = ((now - lastTime) / 1000f).coerceIn(0f, 1f)
                 lastTime = now
 
                 tracker.updatePositions(dt)
@@ -499,7 +514,7 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun publishRadarSnapshot() {
-        _radarAircraft.value = tracker.getAircraft().map(Aircraft::toRadarAircraft)
+        _radarAircraft.value = tracker.getRadarAircraftSnapshot(System.nanoTime())
     }
 
     private fun updateUiStateFromTracker() {

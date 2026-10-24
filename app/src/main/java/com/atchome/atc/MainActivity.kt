@@ -36,6 +36,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             val uiState by viewModel.uiState.collectAsState()
 
+            LaunchedEffect(Unit) {
+                androidx.compose.runtime.withFrameNanos { }
+                reportFullyDrawn()
+            }
+
             // Dynamically manage screen stay-awake based on user setting
             LaunchedEffect(uiState.settings.keepScreenOn) {
                 if (uiState.settings.keepScreenOn) {

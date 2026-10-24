@@ -7,9 +7,9 @@ fun Aircraft.aircraftClass(): AircraftClass {
 }
 
 fun RadarAircraft.aircraftClass(): AircraftClass =
-    classifyAircraft(typeCode, typeDescription, manufacturer, registeredOwner, callsign)
+    aircraftClass
 
-private fun classifyAircraft(typeCode: String, typeDescription: String, manufacturer: String, registeredOwner: String, callsign: String): AircraftClass {
+internal fun classifyAircraft(typeCode: String, typeDescription: String, manufacturer: String, registeredOwner: String, callsign: String): AircraftClass {
     val descriptor = listOf(typeDescription, manufacturer, registeredOwner).joinToString(" ").lowercase()
     val code = typeCode.uppercase()
     val call = callsign.uppercase()

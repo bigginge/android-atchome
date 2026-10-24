@@ -2,21 +2,42 @@ package com.atchome.atc.data
 
 import com.atchome.atc.model.Aircraft
 import com.atchome.atc.model.MAX_AIRCRAFT
+import com.atchome.atc.model.RadarAircraft
 import com.atchome.atc.model.TRAIL_LENGTH
 import com.atchome.atc.model.TrailPoint
+import com.atchome.atc.model.toRadarAircraft
 import kotlin.math.cos
 import kotlin.math.sin
 
 class Tracker {
     private val aircraftList = mutableListOf<Aircraft>()
+    private companion object {
+        private const val MAX_DEAD_RECKONING_DT_SECONDS = 1.0f
+    }
     private var selectedHex: String = ""
     private var autoSelected: Boolean = true
     private var pinnedAircraft: Aircraft? = null
+    private val trailSnapshots = mutableMapOf<String, List<TrailPoint>>()
 
     @Synchronized
     fun getAircraft(): List<Aircraft> = (aircraftList + listOfNotNull(
         pinnedAircraft?.takeIf { pinned -> aircraftList.none { it.hex.equals(pinned.hex, true) } }
     )).toList()
+
+    @Synchronized
+    fun getRadarAircraftSnapshot(positionTimestampNanos: Long): List<RadarAircraft> {
+        val traffic = ArrayList<RadarAircraft>(aircraftList.size + 1)
+        for (aircraft in aircraftList) {
+            traffic += aircraft.toRadarAircraft(
+                trailSnapshot = trailSnapshots[aircraft.hex.uppercase()] ?: emptyList(),
+                positionTimestampNanos = positionTimestampNanos
+            )
+        }
+        pinnedAircraft?.takeIf { pinned -> aircraftList.none { it.hex.equals(pinned.hex, true) } }?.let {
+            traffic += it.toRadarAircraft(positionTimestampNanos = positionTimestampNanos)
+        }
+        return traffic
+    }
 
     @Synchronized
     fun pinAircraft(aircraft: Aircraft?) { pinnedAircraft = aircraft }
@@ -33,6 +54,7 @@ class Tracker {
     @Synchronized
     fun clear() {
         aircraftList.clear()
+        trailSnapshots.clear()
         pinnedAircraft = null
         selectedHex = ""
         autoSelected = true
@@ -57,6 +79,11 @@ class Tracker {
 
             dst.seen = incoming[i].seen
             aircraftList.add(dst)
+        }
+
+        trailSnapshots.clear()
+        aircraftList.forEach { aircraft ->
+            trailSnapshots[aircraft.hex.uppercase()] = aircraft.trail.toList()
         }
 
         if (selectedHex.isNotEmpty() && findByHex(selectedHex) == null) {
@@ -124,10 +151,13 @@ class Tracker {
      */
     @Synchronized
     fun updatePositions(dtSeconds: Float) {
+        val dt = dtSeconds.coerceIn(0f, MAX_DEAD_RECKONING_DT_SECONDS)
+        if (dt <= 0f) return
+
         for (ac in aircraftList) {
             if (ac.groundSpeedKts > 0f) {
                 val speedNmps = ac.groundSpeedKts / 3600f
-                val distNm = speedNmps * dtSeconds
+                val distNm = speedNmps * dt
                 val rad = Math.toRadians(ac.trackDeg.toDouble())
                 ac.eastNm += (sin(rad) * distNm).toFloat()
                 ac.northNm += (cos(rad) * distNm).toFloat()
