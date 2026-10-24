@@ -5,7 +5,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,8 +17,6 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -43,10 +40,10 @@ fun AircraftHighlightFilterPanel(
     aircraft: List<Aircraft>,
     onFiltersChange: (AircraftHighlightFilters) -> Unit,
     onClear: () -> Unit,
-    onDismiss: () -> Unit
+    modifier: Modifier = Modifier
 ) {
         Column(
-            modifier = Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(vertical = 16.dp),
+            modifier = modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text("HIGHLIGHT AIRCRAFT", fontWeight = FontWeight.Bold, color = AtcColors.highlight, letterSpacing = 1.sp)
@@ -62,12 +59,7 @@ fun AircraftHighlightFilterPanel(
             FilterField("Destination", "Airport name or ICAO", filters.destination, aircraft.routeSuggestions(isOrigin = false)) {
                 onFiltersChange(filters.copy(destination = it))
             }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onClear) { Text("Clear filters", color = AtcColors.textSecondary) }
-                Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = AtcColors.highlight)) {
-                    Text("Done", color = AtcColors.cardBackground, fontWeight = FontWeight.Bold)
-                }
-            }
+            TextButton(onClick = onClear) { Text("Clear filters", color = AtcColors.textSecondary) }
         }
 }
 

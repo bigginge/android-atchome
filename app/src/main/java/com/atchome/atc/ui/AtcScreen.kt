@@ -3,6 +3,7 @@ package com.atchome.atc.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,11 +25,14 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
@@ -54,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import com.atchome.atc.model.Aircraft
+import com.atchome.atc.model.AircraftHighlightFilters
 import com.atchome.atc.ui.theme.AtcColors
 import com.atchome.atc.ui.theme.aircraftAltitudeColor
 import com.atchome.atc.viewmodel.AtcViewModel
@@ -65,14 +70,28 @@ fun AtcScreen(viewModel: AtcViewModel, modifier: Modifier = Modifier) {
     val uiState by viewModel.uiState.collectAsState()
     val palette = AtcColors
     var showPhoneDetails by remember { mutableStateOf(false) }
+    var showSidePanel by remember { mutableStateOf(true) }
     var registrationSearchDialogOpen by remember { mutableStateOf(false) }
     var registrationSearchQuery by remember { mutableStateOf("") }
+
+    LaunchedEffect(uiState.selectedAircraft?.hex) {
+        if (uiState.selectedAircraft != null) showSidePanel = true
+    }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize().background(palette.radarBackground)) {
             val isLandscape = maxWidth > maxHeight
             if (isLandscape) {
-                Row(Modifier.fillMaxSize().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Column(Modifier.weight(1.7f).fillMaxHeight()) {
+                val collapsedPanelWidth = 48.dp
+                val expandedPanelWidth = (maxWidth - 30.dp) * 0.38f
+                val sidePanelWidth by animateDpAsState(
+                    targetValue = if (showSidePanel) expandedPanelWidth else collapsedPanelWidth,
+                    label = "side panel width"
+                )
+                Row(
+                    Modifier.fillMaxSize().padding(if (showSidePanel) 10.dp else 0.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Column(Modifier.weight(1f).fillMaxHeight()) {
                         Box(Modifier.weight(1f).fillMaxWidth()) {
                         RadarView(
                             radarAircraft = viewModel.radarAircraft,
@@ -87,29 +106,18 @@ fun AtcScreen(viewModel: AtcViewModel, modifier: Modifier = Modifier) {
                             dataTagMode = uiState.settings.dataTagMode,
                             speedUnit = uiState.settings.speedUnit,
                             highlightFilters = uiState.highlightFilters,
-                            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)),
-                            onSelectAt = { east, north, radius -> viewModel.selectNearestTo(east, north, radius) },
-                            onSelectByHex = viewModel::selectByHex,
+                            modifier = Modifier.fillMaxSize().clip(if (showSidePanel) RoundedCornerShape(18.dp) else RoundedCornerShape(0.dp)),
+                            onSelectAt = { east, north, radius ->
+                                viewModel.selectNearestTo(east, north, radius)
+                                showSidePanel = true
+                            },
+                            onSelectByHex = {
+                                viewModel.selectByHex(it)
+                                showSidePanel = true
+                            },
                             onZoomIn = { viewModel.zoomIn() },
                             onZoomOut = { viewModel.zoomOut() }
                         )
-                            Surface(
-                                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 120.dp).size(48.dp),
-                                color = palette.infoBackground.copy(alpha = 0.82f),
-                                shape = CircleShape,
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    if (uiState.highlightFilters.isActive) palette.highlight else palette.tagBorder
-                                )
-                            ) {
-                                IconButton(onClick = { viewModel.openHighlightFilters() }) {
-                                    Icon(
-                                        Icons.Default.FilterAlt,
-                                        contentDescription = "Traffic filters",
-                                        tint = if (uiState.highlightFilters.isActive) palette.highlight else palette.textPrimary
-                                    )
-                                }
-                            }
                             Surface(
                                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 11.dp).size(48.dp),
                                 color = palette.infoBackground.copy(alpha = 0.96f),
@@ -143,35 +151,45 @@ fun AtcScreen(viewModel: AtcViewModel, modifier: Modifier = Modifier) {
                             TrafficTicker(
                                 aircraft = uiState.aircraft,
                                 selectedHex = uiState.selectedAircraft?.hex,
-                                onSelect = viewModel::selectByHex,
+                                onSelect = {
+                                    viewModel.selectByHex(it)
+                                    showSidePanel = true
+                                },
                                 autoScroll = !uiState.settings.reduceMotion,
                                 translucent = true,
                                 modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 8.dp, end = 64.dp, bottom = 8.dp)
                             )
                         }
                     }
-                        if (uiState.isHighlightFilterSheetOpen) {
-                            Surface(
-                                modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(18.dp)),
-                                color = palette.infoBackground,
-                                contentColor = palette.textPrimary
-                            ) {
-                                AircraftHighlightFilterPanel(
-                                    filters = uiState.highlightFilters,
-                                    aircraft = uiState.aircraft,
-                                    onFiltersChange = viewModel::updateHighlightFilters,
-                                    onClear = viewModel::clearHighlightFilters,
-                                    onDismiss = viewModel::closeHighlightFilters
-                                )
-                            }
-                        } else {
-                            InfoPanel(
+                    Row(
+                        modifier = Modifier.width(sidePanelWidth).fillMaxHeight()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(palette.infoBackground)
+                    ) {
+                        if (showSidePanel) {
+                            FlightDetailsTabs(
                                 selectedAircraft = uiState.selectedAircraft,
-                                compact = true,
+                                filters = uiState.highlightFilters,
+                                aircraft = uiState.aircraft,
                                 speedUnit = uiState.settings.speedUnit,
-                                modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(18.dp))
+                                compact = true,
+                                onFiltersChange = viewModel::updateHighlightFilters,
+                                onClearFilters = viewModel::clearHighlightFilters,
+                                onOpenFilters = viewModel::loadHighlightFilterSuggestions,
+                                modifier = Modifier.weight(1f).fillMaxHeight()
                             )
                         }
+                        IconButton(
+                            onClick = { showSidePanel = !showSidePanel },
+                            modifier = Modifier.align(Alignment.CenterVertically).width(48.dp).height(64.dp)
+                        ) {
+                            Icon(
+                                if (showSidePanel) Icons.Default.ChevronRight else Icons.Default.ChevronLeft,
+                                contentDescription = if (showSidePanel) "Contract details panel" else "Expand details panel",
+                                tint = palette.highlight
+                            )
+                        }
+                    }
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
@@ -202,26 +220,6 @@ fun AtcScreen(viewModel: AtcViewModel, modifier: Modifier = Modifier) {
                         onZoomIn = { viewModel.zoomIn() },
                         onZoomOut = { viewModel.zoomOut() }
                     )
-                        Surface(
-                            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 64.dp).size(48.dp),
-                            color = palette.infoBackground.copy(alpha = 0.82f),
-                            shape = CircleShape,
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                if (uiState.highlightFilters.isActive) palette.highlight else palette.tagBorder
-                            )
-                        ) {
-                            IconButton(onClick = {
-                                viewModel.openHighlightFilters()
-                                showPhoneDetails = true
-                            }) {
-                                Icon(
-                                    Icons.Default.FilterAlt,
-                                    contentDescription = "Traffic filters",
-                                    tint = if (uiState.highlightFilters.isActive) palette.highlight else palette.textPrimary
-                                )
-                            }
-                        }
                         Surface(
                             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 60.dp, bottom = 8.dp).size(48.dp),
                             color = palette.infoBackground.copy(alpha = 0.96f),
@@ -331,30 +329,87 @@ fun AtcScreen(viewModel: AtcViewModel, modifier: Modifier = Modifier) {
             }
         )
     }
-    if (showPhoneDetails && (uiState.selectedAircraft != null || uiState.isHighlightFilterSheetOpen)) {
+    if (showPhoneDetails) {
         ModalBottomSheet(
-            onDismissRequest = {
-                showPhoneDetails = false
-                viewModel.closeHighlightFilters()
-            },
+            onDismissRequest = { showPhoneDetails = false },
             containerColor = palette.infoBackground,
             contentColor = palette.textPrimary
         ) {
-            if (uiState.isHighlightFilterSheetOpen) {
-                AircraftHighlightFilterPanel(
-                    filters = uiState.highlightFilters,
-                    aircraft = uiState.aircraft,
-                    onFiltersChange = viewModel::updateHighlightFilters,
-                    onClear = viewModel::clearHighlightFilters,
-                    onDismiss = viewModel::closeHighlightFilters
-                )
-            } else {
-                InfoPanel(
-                    selectedAircraft = uiState.selectedAircraft,
-                    speedUnit = uiState.settings.speedUnit,
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp)
-                )
-            }
+            FlightDetailsTabs(
+                selectedAircraft = uiState.selectedAircraft,
+                filters = uiState.highlightFilters,
+                aircraft = uiState.aircraft,
+                speedUnit = uiState.settings.speedUnit,
+                compact = false,
+                onFiltersChange = viewModel::updateHighlightFilters,
+                onClearFilters = viewModel::clearHighlightFilters,
+                onOpenFilters = viewModel::loadHighlightFilterSuggestions,
+                modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun FlightDetailsTabs(
+    selectedAircraft: Aircraft?,
+    filters: AircraftHighlightFilters,
+    aircraft: List<Aircraft>,
+    speedUnit: String,
+    compact: Boolean,
+    onFiltersChange: (AircraftHighlightFilters) -> Unit,
+    onClearFilters: () -> Unit,
+    onOpenFilters: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var selectedTab by remember { mutableStateOf(0) }
+    LaunchedEffect(selectedAircraft?.hex) {
+        if (selectedAircraft != null) selectedTab = 0
+    }
+    Column(modifier.background(AtcColors.infoBackground)) {
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = AtcColors.infoBackground,
+            contentColor = AtcColors.highlight
+        ) {
+            Tab(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                text = { Text("FLIGHT DETAILS", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = selectedTab == 1,
+                onClick = {
+                    selectedTab = 1
+                    onOpenFilters()
+                },
+                text = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("FILTERS", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        if (filters.isActive) {
+                            Box(
+                                Modifier.size(6.dp).background(AtcColors.highlight, CircleShape)
+                            )
+                        }
+                    }
+                }
+            )
+        }
+        if (selectedTab == 0) {
+            InfoPanel(
+                selectedAircraft = selectedAircraft,
+                compact = compact,
+                speedUnit = speedUnit,
+                modifier = Modifier.weight(1f).fillMaxWidth()
+            )
+        } else {
+            AircraftHighlightFilterPanel(
+                filters = filters,
+                aircraft = aircraft,
+                onFiltersChange = onFiltersChange,
+                onClear = onClearFilters,
+                modifier = Modifier.weight(1f).fillMaxWidth()
+            )
         }
     }
 }

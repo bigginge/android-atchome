@@ -40,7 +40,6 @@ data class AtcUiState(
     val settings: AppSettings = AppSettings(),
     val isSettingsDialogOpen: Boolean = false,
     val highlightFilters: AircraftHighlightFilters = AircraftHighlightFilters(),
-    val isHighlightFilterSheetOpen: Boolean = false,
     val radarCenterLat: Double? = null,
     val radarCenterLon: Double? = null,
     val isSearchingRegistration: Boolean = false,
@@ -87,13 +86,8 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(isSettingsDialogOpen = false)
     }
 
-    fun openHighlightFilters() {
-        _uiState.value = _uiState.value.copy(isHighlightFilterSheetOpen = true)
+    fun loadHighlightFilterSuggestions() {
         loadRouteSuggestions()
-    }
-
-    fun closeHighlightFilters() {
-        _uiState.value = _uiState.value.copy(isHighlightFilterSheetOpen = false)
     }
 
     fun updateHighlightFilters(filters: AircraftHighlightFilters) {
