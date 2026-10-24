@@ -8,6 +8,25 @@ const val MAX_AIRCRAFT = 500
 const val TRAIL_LENGTH = 12
 const val MAX_ALTITUDE_FT = 40000
 
+fun formatPositionAge(seconds: Int?): String {
+    if (seconds == null) return "age unknown"
+    return when {
+        seconds < 60 -> "${seconds}s ago"
+        seconds < 3600 -> "${seconds / 60}m ago"
+        seconds < 86400 -> "${seconds / 3600}h ago"
+        else -> "${seconds / 86400}d ago"
+    }
+}
+
+fun formatSpeedFromKnots(speedKnots: Float, unit: String): String {
+    val (speed, label) = when (unit.uppercase()) {
+        "MPH" -> speedKnots * 1.150779f to "MPH"
+        "KPH" -> speedKnots * 1.852f to "KPH"
+        else -> speedKnots to "KTS"
+    }
+    return String.format(java.util.Locale.US, "%.0f %s", speed, label)
+}
+
 /**
  * Aircraft representation tracking live telemetry, enrichment, and trail history.
  */
@@ -51,7 +70,8 @@ data class Aircraft(
 
     val hue: Float = hueFromHex(hex),
     val trail: MutableList<TrailPoint> = mutableListOf(),
-    var seen: Boolean = true
+    var seen: Boolean = true,
+    var positionAgeSeconds: Int? = null
 ) {
     /** Great-circle distance from origin airport to current position, if known. */
     val distanceFromOriginNm: Float?

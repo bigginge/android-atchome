@@ -11,9 +11,15 @@ class Tracker {
     private val aircraftList = mutableListOf<Aircraft>()
     private var selectedHex: String = ""
     private var autoSelected: Boolean = true
+    private var pinnedAircraft: Aircraft? = null
 
     @Synchronized
-    fun getAircraft(): List<Aircraft> = aircraftList.toList()
+    fun getAircraft(): List<Aircraft> = (aircraftList + listOfNotNull(
+        pinnedAircraft?.takeIf { pinned -> aircraftList.none { it.hex.equals(pinned.hex, true) } }
+    )).toList()
+
+    @Synchronized
+    fun pinAircraft(aircraft: Aircraft?) { pinnedAircraft = aircraft }
 
     @Synchronized
     fun selected(): Aircraft? = findByHex(selectedHex)
@@ -27,6 +33,7 @@ class Tracker {
     @Synchronized
     fun clear() {
         aircraftList.clear()
+        pinnedAircraft = null
         selectedHex = ""
         autoSelected = true
     }
@@ -48,7 +55,7 @@ class Tracker {
                 pushTrail(dst, dst.eastNm, dst.northNm)
             }
 
-            dst.seen = true
+            dst.seen = incoming[i].seen
             aircraftList.add(dst)
         }
 
@@ -64,11 +71,11 @@ class Tracker {
 
     @Synchronized
     fun selectNearest() {
-        if (aircraftList.isEmpty()) {
+        if (getAircraft().isEmpty()) {
             selectedHex = ""
             return
         }
-        val nearest = aircraftList.minByOrNull { it.distanceNm }
+        val nearest = getAircraft().minByOrNull { it.distanceNm }
         if (nearest != null) {
             selectedHex = nearest.hex
         }
@@ -91,7 +98,7 @@ class Tracker {
         var best: Aircraft? = null
         var bestDist2 = hitRadiusNm * hitRadiusNm
 
-        for (ac in aircraftList) {
+        for (ac in getAircraft()) {
             val de = ac.eastNm - eastNm
             val dn = ac.northNm - northNm
             val d2 = de * de + dn * dn
@@ -131,6 +138,7 @@ class Tracker {
     private fun findByHex(hex: String): Aircraft? {
         if (hex.isEmpty()) return null
         return aircraftList.firstOrNull { it.hex.equals(hex, ignoreCase = true) }
+            ?: pinnedAircraft?.takeIf { it.hex.equals(hex, ignoreCase = true) }
     }
 
     private fun pushTrail(ac: Aircraft, eastNm: Float, northNm: Float) {

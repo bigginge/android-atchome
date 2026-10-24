@@ -24,16 +24,51 @@ class AdsbApiClient(
         homeLat: Double,
         homeLon: Double,
         radiusNm: Int
+    ): Result<List<Aircraft>> = fetchFromUrl(
+        url = String.format(
+            Locale.US,
+            "https://opendata.adsb.fi/api/v3/lat/%.4f/lon/%.4f/dist/%d",
+            homeLat,
+            homeLon,
+            radiusNm
+        ),
+        homeLat = homeLat,
+        homeLon = homeLon
+    )
+
+    suspend fun fetchAircraftByRegistration(
+        registration: String,
+        homeLat: Double,
+        homeLon: Double
+    ): Result<List<Aircraft>> {
+        val encodedRegistration = java.net.URLEncoder.encode(registration.trim(), "UTF-8")
+        val primary = fetchFromUrl(
+            url = "https://opendata.adsb.fi/api/v2/registration/$encodedRegistration",
+            homeLat = homeLat,
+            homeLon = homeLon
+        )
+        if (primary.getOrNull()?.isNotEmpty() == true) return primary
+
+        // Registration lookup is global, but live coverage differs by network.
+        // Retry against a second public feed when adsb.fi has no position.
+        val fallback = fetchFromUrl(
+            url = "https://api.adsb.lol/v2/registration/$encodedRegistration",
+            homeLat = homeLat,
+            homeLon = homeLon
+        )
+        if (fallback.getOrNull()?.isNotEmpty() == true) return fallback
+
+        // An empty success from either source is a valid "not seen" result.
+        // Only surface a network error if both providers failed.
+        return if (primary.isSuccess) primary else fallback
+    }
+
+    private suspend fun fetchFromUrl(
+        url: String,
+        homeLat: Double,
+        homeLon: Double
     ): Result<List<Aircraft>> = withContext(Dispatchers.IO) {
         try {
-            val url = String.format(
-                Locale.US,
-                "https://opendata.adsb.fi/api/v3/lat/%.4f/lon/%.4f/dist/%d",
-                homeLat,
-                homeLon,
-                radiusNm
-            )
-
             val request = Request.Builder()
                 .url(url)
                 .header("Accept", "application/json")
@@ -63,9 +98,17 @@ class AdsbApiClient(
                     val hex = item.optString("hex").trim()
                     if (hex.isEmpty()) continue
 
-                    val lat = item.optDouble("lat", Double.NaN)
-                    val lon = item.optDouble("lon", Double.NaN)
-                    if (lat.isNaN() || lon.isNaN()) continue
+                    var lat = item.optDouble("lat", Double.NaN)
+                    var lon = item.optDouble("lon", Double.NaN)
+                    var positionAgeSeconds: Int? = null
+                    val hasLivePosition = !lat.isNaN() && !lon.isNaN()
+                    if (!hasLivePosition) {
+                        val lastPosition = item.optJSONObject("lastPosition") ?: continue
+                        lat = lastPosition.optDouble("lat", Double.NaN)
+                        lon = lastPosition.optDouble("lon", Double.NaN)
+                        if (lat.isNaN() || lon.isNaN()) continue
+                        positionAgeSeconds = lastPosition.optInt("seen_pos", -1).takeIf { it >= 0 }
+                    }
 
                     val callsign = item.optString("flight").trim()
                     val registration = item.optString("r").trim()
@@ -133,7 +176,9 @@ class AdsbApiClient(
                         altitudeFt = altitudeFt,
                         altitudeKnown = altitudeKnown,
                         vertRateFpm = vertRateFpm,
-                        groundSpeedKts = groundSpeedKts
+                        groundSpeedKts = if (hasLivePosition) groundSpeedKts else 0f,
+                        seen = hasLivePosition,
+                        positionAgeSeconds = positionAgeSeconds
                     )
                     results.add(aircraft)
                 }

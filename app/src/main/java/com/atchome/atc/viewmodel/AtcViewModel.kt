@@ -8,13 +8,16 @@ import com.atchome.atc.api.AircraftImageApiClient
 import com.atchome.atc.api.HexdbApiClient
 import com.atchome.atc.data.AirportRepository
 import com.atchome.atc.data.AppSettings
+import com.atchome.atc.data.MAX_RADAR_RANGE_NM
 import com.atchome.atc.data.SettingsManager
 import com.atchome.atc.data.Tracker
 import com.atchome.atc.model.Aircraft
+import com.atchome.atc.model.formatPositionAge
 import com.atchome.atc.model.AircraftHighlightFilters
 import com.atchome.atc.model.Airport
 import com.atchome.atc.model.RadarAircraft
 import com.atchome.atc.model.toRadarAircraft
+import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -34,7 +37,11 @@ data class AtcUiState(
     val settings: AppSettings = AppSettings(),
     val isSettingsDialogOpen: Boolean = false,
     val highlightFilters: AircraftHighlightFilters = AircraftHighlightFilters(),
-    val isHighlightFilterSheetOpen: Boolean = false
+    val isHighlightFilterSheetOpen: Boolean = false,
+    val radarCenterLat: Double? = null,
+    val radarCenterLon: Double? = null,
+    val isSearchingRegistration: Boolean = false,
+    val registrationSearchMessage: String? = null
 )
 
 class AtcViewModel(application: Application) : AndroidViewModel(application) {
@@ -56,6 +63,7 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
     private var tickerJob: Job? = null
     private var enrichmentJob: Job? = null
     private var airportJob: Job? = null
+    private var registrationSearchJob: Job? = null
     private var lastEnrichedHex: String = ""
 
     init {
@@ -88,11 +96,71 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
         updateHighlightFilters(AircraftHighlightFilters())
     }
 
+    fun searchAircraftByRegistration(registration: String) {
+        val query = registration.trim()
+        if (query.isBlank() || _uiState.value.isSearchingRegistration) return
+
+        registrationSearchJob?.cancel()
+        pollJob?.cancel()
+        registrationSearchJob = viewModelScope.launch {
+            val settings = _uiState.value.settings
+            _uiState.value = _uiState.value.copy(isSearchingRegistration = true, registrationSearchMessage = null)
+            adsbClient.fetchAircraftByRegistration(query, settings.homeLat, settings.homeLon)
+                .onSuccess { results ->
+                    val found = results.firstOrNull { it.registration.equals(query, ignoreCase = true) }
+                        ?: results.firstOrNull()
+                    if (found == null) {
+                        _uiState.value = _uiState.value.copy(isSearchingRegistration = false, registrationSearchMessage = "No recent position found for $query.")
+                        Toast.makeText(getApplication(), "No recent position found for $query", Toast.LENGTH_SHORT).show()
+                        resumePollingAfterSearch()
+                        return@onSuccess
+                    }
+
+                    // Put the target at the temporary radar center immediately;
+                    // the following local snapshot supplies nearby traffic.
+                    val isLastKnown = !found.seen
+                    val centeredTarget = found.copy(eastNm = 0f, northNm = 0f, distanceNm = 0f)
+                    tracker.pinAircraft(centeredTarget.takeIf { isLastKnown })
+                    tracker.mergeSnapshot(listOf(centeredTarget))
+                    tracker.selectByHex(centeredTarget.hex)
+                    _uiState.value = _uiState.value.copy(
+                        aircraft = tracker.getAircraft(),
+                        selectedAircraft = tracker.selected()?.copy(),
+                        radarCenterLat = found.lat,
+                        radarCenterLon = found.lon,
+                        isSearchingRegistration = false,
+                        statusMessage = if (isLastKnown) "Last seen ${found.registration.ifBlank { query }}" else "Located ${found.registration.ifBlank { query }}",
+                        registrationSearchMessage = if (isLastKnown) "Last seen ${found.registration.ifBlank { query }} · ${formatPositionAge(found.positionAgeSeconds)}" else "Live position found for ${found.registration.ifBlank { query }}"
+                    )
+                    publishRadarSnapshot()
+                    refreshNearbyAirports()
+                    triggerEnrichment(tracker.selected())
+                    Toast.makeText(getApplication(), _uiState.value.registrationSearchMessage.orEmpty(), Toast.LENGTH_LONG).show()
+                    resumePollingAfterSearch()
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(isSearchingRegistration = false, registrationSearchMessage = "Search failed: ${error.message ?: "network error"}")
+                    Toast.makeText(getApplication(), "Aircraft search failed: ${error.message}", Toast.LENGTH_LONG).show()
+                    resumePollingAfterSearch()
+                }
+        }
+    }
+
+    private fun resumePollingAfterSearch() {
+        viewModelScope.launch {
+            delay(1100L) // Respect the public API's one-request-per-second limit.
+            startPolling()
+        }
+    }
+
     fun saveSettings(newSettings: AppSettings) {
         val previous = _uiState.value.settings
+        val homeChanged = previous.homeLat != newSettings.homeLat || previous.homeLon != newSettings.homeLon
         settingsManager.saveSettings(newSettings)
         _uiState.value = _uiState.value.copy(
             settings = newSettings,
+            radarCenterLat = if (homeChanged) null else _uiState.value.radarCenterLat,
+            radarCenterLon = if (homeChanged) null else _uiState.value.radarCenterLon,
             isSettingsDialogOpen = false
         )
         if (previous.homeLat != newSettings.homeLat ||
@@ -117,9 +185,11 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
         airportJob?.cancel()
         airportJob = viewModelScope.launch {
             val settings = _uiState.value.settings
+            val centerLat = _uiState.value.radarCenterLat ?: settings.homeLat
+            val centerLon = _uiState.value.radarCenterLon ?: settings.homeLon
             val nearby = airportRepository.nearby(
-                homeLat = settings.homeLat,
-                homeLon = settings.homeLon,
+                homeLat = centerLat,
+                homeLon = centerLon,
                 radiusNm = settings.radiusNm,
                 airportTypes = buildSet {
                     if (settings.showSmallAirports) add("small")
@@ -149,7 +219,7 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
         val newRadius = when {
             current.radiusNm < 10 -> current.radiusNm + 2
             current.radiusNm < 25 -> current.radiusNm + 5
-            else -> (current.radiusNm + 10).coerceAtMost(100)
+            else -> (current.radiusNm + 10).coerceAtMost(MAX_RADAR_RANGE_NM)
         }
         if (newRadius != current.radiusNm) {
             val updated = current.copy(radiusNm = newRadius)
@@ -198,9 +268,12 @@ class AtcViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.value = _uiState.value.copy(isScanning = true)
 
         val result = adsbClient.fetchNearbyAircraft(
-            homeLat = currentSettings.homeLat,
-            homeLon = currentSettings.homeLon,
-            radiusNm = currentSettings.radiusNm
+            homeLat = _uiState.value.radarCenterLat ?: currentSettings.homeLat,
+            homeLon = _uiState.value.radarCenterLon ?: currentSettings.homeLon,
+            // Range rings show the configured range, but the viewport extends
+            // beyond the outer circle near its edges and corners. Fetch a
+            // wider area so traffic can be drawn throughout the full viewport.
+            radiusNm = (currentSettings.radiusNm * 2).coerceAtMost(MAX_RADAR_RANGE_NM)
         )
 
         withContext(Dispatchers.Main) {

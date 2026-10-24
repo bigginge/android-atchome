@@ -45,6 +45,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.atchome.atc.model.Aircraft
 import com.atchome.atc.model.aircraftClass
+import com.atchome.atc.model.formatSpeedFromKnots
 import com.atchome.atc.model.shortLabel
 import com.atchome.atc.ui.theme.AtcColors
 import com.atchome.atc.ui.theme.aircraftAltitudeColor
@@ -53,13 +54,15 @@ import java.util.Locale
 @Composable
 fun InfoPanel(
     selectedAircraft: Aircraft?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+    speedUnit: String = "KTS"
 ) {
     Column(
         modifier = modifier
             .fillMaxHeight()
             .background(AtcColors.infoBackground)
-            .padding(16.dp)
+            .padding(if (compact) 12.dp else 16.dp)
             .verticalScroll(rememberScrollState())
     ) {
         // A quiet section title keeps attention on the selected flight.
@@ -71,7 +74,7 @@ fun InfoPanel(
             Text("FLIGHT DETAILS", fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp, color = AtcColors.textSecondary)
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(if (compact) 8.dp else 14.dp))
 
         if (selectedAircraft == null) {
             // Empty State
@@ -119,9 +122,10 @@ fun InfoPanel(
                 AircraftImageCard(
                     imageUrl = selectedAircraft.imageUrl,
                     photographer = selectedAircraft.imagePhotographer,
-                    isLoading = !selectedAircraft.imageLoaded
+                    isLoading = !selectedAircraft.imageLoaded,
+                    compact = compact
                 )
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(if (compact) 7.dp else 10.dp))
             }
 
             // 1. Aircraft Type & Registration Card
@@ -166,7 +170,7 @@ fun InfoPanel(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(if (compact) 7.dp else 10.dp))
 
             // 2. Flight / Operator Card
             InfoCard(title = "FLIGHT") {
@@ -199,7 +203,7 @@ fun InfoPanel(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(if (compact) 7.dp else 10.dp))
 
             // 3. Telemetry Matrix (Distance, Altitude, Speed, Track)
             Row(
@@ -237,7 +241,7 @@ fun InfoPanel(
             ) {
                 TelemetryMetric(
                     label = "SPEED",
-                    value = String.format(Locale.US, "%.0f KTS", selectedAircraft.groundSpeedKts),
+                    value = formatSpeedFromKnots(selectedAircraft.groundSpeedKts, speedUnit),
                     icon = Icons.Default.Speed,
                     modifier = Modifier.weight(1f)
                 )
@@ -429,8 +433,10 @@ private fun AircraftImageCard(
     imageUrl: String?,
     photographer: String?,
     isLoading: Boolean,
+    compact: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val imageHeight = if (compact) 116.dp else 150.dp
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
@@ -440,7 +446,7 @@ private fun AircraftImageCard(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp)
+                    .height(imageHeight)
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
@@ -451,7 +457,7 @@ private fun AircraftImageCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(150.dp)
+                        .height(imageHeight)
                         .clip(RoundedCornerShape(8.dp))
                 )
 

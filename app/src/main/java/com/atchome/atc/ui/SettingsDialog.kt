@@ -46,6 +46,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.atchome.atc.data.AppSettings
+import com.atchome.atc.data.MAX_RADAR_RANGE_NM
 import com.atchome.atc.ui.theme.AtcColors
 import java.util.Locale
 
@@ -58,6 +59,7 @@ fun SettingsDialog(
     var latText by remember { mutableStateOf(String.format(Locale.US, "%.6f", initialSettings.homeLat)) }
     var lonText by remember { mutableStateOf(String.format(Locale.US, "%.6f", initialSettings.homeLon)) }
     var radiusNm by remember { mutableFloatStateOf(initialSettings.radiusNm.toFloat()) }
+    var speedUnit by remember { mutableStateOf(initialSettings.speedUnit) }
     var refreshIntervalSec by remember { mutableFloatStateOf(initialSettings.refreshIntervalSeconds.toFloat()) }
     var keepScreenOn by remember { mutableStateOf(initialSettings.keepScreenOn) }
     var showTrails by remember { mutableStateOf(initialSettings.showTrails) }
@@ -180,8 +182,8 @@ fun SettingsDialog(
                 Slider(
                     value = radiusNm,
                     onValueChange = { radiusNm = it },
-                    valueRange = 5f..100f,
-                    steps = 18,
+                    valueRange = 5f..MAX_RADAR_RANGE_NM.toFloat(),
+                    steps = 48,
                     colors = SliderDefaults.colors(
                         thumbColor = AtcColors.highlight,
                         activeTrackColor = AtcColors.highlight
@@ -220,6 +222,45 @@ fun SettingsDialog(
                         activeTrackColor = AtcColors.highlight
                     )
                 )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "SPEED UNITS",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace,
+                    color = AtcColors.highlight,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(AtcColors.cardBackground, RoundedCornerShape(6.dp))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf("MPH", "KPH", "KTS").forEach { unit ->
+                        val selected = speedUnit == unit
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(if (selected) AtcColors.highlight else AtcColors.cardBackground)
+                                .clickable { speedUnit = unit }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = unit,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (selected) AtcColors.cardBackground else AtcColors.textSecondary
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -362,6 +403,7 @@ fun SettingsDialog(
                             homeLat = lat,
                             homeLon = lon,
                             radiusNm = radiusNm.toInt(),
+                            speedUnit = speedUnit,
                             refreshIntervalSeconds = refreshIntervalSec.toInt(),
                             keepScreenOn = keepScreenOn,
                             showTrails = showTrails,

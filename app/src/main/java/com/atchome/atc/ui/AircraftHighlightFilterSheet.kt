@@ -63,6 +63,9 @@ fun AircraftHighlightFilterSheet(
             FilterField("Airline / callsign", "Callsign starts with… e.g. BAW", filters.airlineCallsign, aircraft.callsignSuggestions()) {
                 onFiltersChange(filters.copy(airlineCallsign = it))
             }
+            FilterField("Registration", "e.g. G-ABCD or N123AB", filters.registration, aircraft.registrationSuggestions()) {
+                onFiltersChange(filters.copy(registration = it))
+            }
             FilterField("Origin", "Airport name or ICAO", filters.origin, aircraft.routeSuggestions(isOrigin = true)) { onFiltersChange(filters.copy(origin = it)) }
             FilterField("Destination", "Airport name or ICAO", filters.destination, aircraft.routeSuggestions(isOrigin = false)) {
                 onFiltersChange(filters.copy(destination = it))
@@ -153,6 +156,10 @@ private fun List<Aircraft>.typeSuggestions(): List<FilterSuggestion> = mapNotNul
 
 private fun List<Aircraft>.callsignSuggestions(): List<FilterSuggestion> = mapNotNull { aircraft ->
     aircraft.callsign.trim().takeIf(String::isNotEmpty)?.let { FilterSuggestion(it, it) }
+}.distinctBy { it.value.lowercase() }.sortedBy { it.label.lowercase() }
+
+private fun List<Aircraft>.registrationSuggestions(): List<FilterSuggestion> = mapNotNull { aircraft ->
+    aircraft.registration.trim().takeIf(String::isNotEmpty)?.let { FilterSuggestion(it, it) }
 }.distinctBy { it.value.lowercase() }.sortedBy { it.label.lowercase() }
 
 private fun List<Aircraft>.routeSuggestions(isOrigin: Boolean): List<FilterSuggestion> = mapNotNull { aircraft ->

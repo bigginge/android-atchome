@@ -3,10 +3,13 @@ package com.atchome.atc.data
 import android.content.Context
 import android.content.SharedPreferences
 
+const val MAX_RADAR_RANGE_NM = 250
+
 data class AppSettings(
     val homeLat: Double = 52.289514,
     val homeLon: Double = -0.865019,
     val radiusNm: Int = 25,
+    val speedUnit: String = "KTS",
     val refreshIntervalSeconds: Int = 15,
     val keepScreenOn: Boolean = true,
     val showTrails: Boolean = true,
@@ -30,6 +33,7 @@ class SettingsManager(context: Context) {
             homeLat = prefs.getString(KEY_LAT, "52.289514")?.toDoubleOrNull() ?: 52.289514,
             homeLon = prefs.getString(KEY_LON, "-0.865019")?.toDoubleOrNull() ?: -0.865019,
             radiusNm = prefs.getInt(KEY_RADIUS, 25),
+            speedUnit = prefs.getString(KEY_SPEED_UNIT, "KTS") ?: "KTS",
             refreshIntervalSeconds = prefs.getInt(KEY_INTERVAL, 15),
             keepScreenOn = prefs.getBoolean(KEY_KEEP_SCREEN_ON, true),
             showTrails = prefs.getBoolean(KEY_SHOW_TRAILS, true),
@@ -50,6 +54,7 @@ class SettingsManager(context: Context) {
             .putString(KEY_LAT, settings.homeLat.toString())
             .putString(KEY_LON, settings.homeLon.toString())
             .putInt(KEY_RADIUS, settings.radiusNm)
+            .putString(KEY_SPEED_UNIT, settings.speedUnit)
             .putInt(KEY_INTERVAL, settings.refreshIntervalSeconds)
             .putBoolean(KEY_KEEP_SCREEN_ON, settings.keepScreenOn)
             .putBoolean(KEY_SHOW_TRAILS, settings.showTrails)
@@ -69,6 +74,7 @@ class SettingsManager(context: Context) {
         private const val KEY_LAT = "home_latitude"
         private const val KEY_LON = "home_longitude"
         private const val KEY_RADIUS = "search_radius_nm"
+        private const val KEY_SPEED_UNIT = "speed_unit"
         private const val KEY_INTERVAL = "refresh_interval_sec"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_SHOW_TRAILS = "show_trails"

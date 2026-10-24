@@ -20,7 +20,9 @@ data class RadarAircraft(
     val destination: String,
     val originIcao: String,
     val destinationIcao: String,
-    val trail: List<TrailPoint>
+    val trail: List<TrailPoint>,
+    val seen: Boolean,
+    val positionAgeSeconds: Int?
 ) {
     val formattedAltitude: String
         get() = when {
@@ -57,5 +59,7 @@ fun Aircraft.toRadarAircraft(): RadarAircraft = RadarAircraft(
     destination = destination,
     originIcao = originIcao,
     destinationIcao = destinationIcao,
-    trail = trail.toList()
+    trail = trail.toList(),
+    seen = seen,
+    positionAgeSeconds = positionAgeSeconds
 )
